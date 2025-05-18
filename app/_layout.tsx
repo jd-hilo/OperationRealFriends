@@ -48,7 +48,10 @@ export default function RootLayout() {
     prepare();
   }, [checkExistingUser]);
 
+  // Only redirect if we're at the root path
   useEffect(() => {
+    if (!fontsLoaded) return;
+
     // Check if user has completed onboarding
     const hasCompletedOnboarding = false; // Replace with your actual check
 
@@ -62,10 +65,10 @@ export default function RootLayout() {
       if (isInQueue) {
         router.replace('/queue');
       } else {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/home');
       }
     }
-  }, [segments]);
+  }, [fontsLoaded]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -87,17 +90,11 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#FFFFFF' }
         }}
       >
-        {!userId ? (
-          <>
-            <Stack.Screen name="entry" />
-            <Stack.Screen name="quiz" />
-            <Stack.Screen name="queue" />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </>
-        )}
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="entry" />
+        <Stack.Screen name="quiz" />
+        <Stack.Screen name="queue" />
       </Stack>
     </View>
   );
