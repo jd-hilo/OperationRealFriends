@@ -136,45 +136,45 @@ export default function PromptScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.promptContainer}>
         <Text style={styles.promptTitle}>Today's Prompt</Text>
-        <Text style={styles.promptText}>{prompt?.question_text || "Loading today's question..."}</Text>
+        <Text style={styles.promptText}>{prompt?.question_text || "What's one thing you're proud of accomplishing recently?"}</Text>
       </View>
-
-      {!hasSubmitted ? (
+      
+        {!hasSubmitted ? (
         <View style={styles.inputContainer}>
-          <TextInput
+            <TextInput
             style={styles.input}
             multiline
-            placeholder="Type your response here..."
-            placeholderTextColor={theme.colors.text.tertiary}
-            value={response}
-            onChangeText={handleTextChange}
-          />
-          <View style={styles.characterCountContainer}>
-            <Text style={styles.characterCount}>
-              {characterCount}/{MAX_CHARS}
-            </Text>
+              placeholder="Type your response here..."
+              placeholderTextColor={theme.colors.text.tertiary}
+              value={response}
+              onChangeText={handleTextChange}
+            />
+            <View style={styles.characterCountContainer}>
+              <Text style={styles.characterCount}>
+                {characterCount}/{MAX_CHARS}
+              </Text>
+            </View>
+            <Button
+              title="Submit Response"
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={response.trim().length === 0 || loading}
+            />
           </View>
-          <Button
-            title="Submit Response"
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={response.trim().length === 0 || loading}
-          />
-        </View>
-      ) : (
+        ) : (
         <View style={styles.responsesContainer}>
           <Text style={styles.responsesTitle}>Group Responses</Text>
-          {submissions.map((submission, index) => (
+            {submissions.map((submission, index) => (
             <Card key={submission.id} style={styles.responseItem}>
               <Text style={styles.responseUsername}>
-                {submission.user_id === userId ? 'You' : `Member ${index + 1}`}
-              </Text>
+                  {submission.user_id === userId ? 'You' : `Member ${index + 1}`}
+                </Text>
               <Text style={styles.responseText}>{submission.response_text}</Text>
-            </Card>
-          ))}
-        </View>
-      )}
-    </ScrollView>
+              </Card>
+            ))}
+          </View>
+        )}
+      </ScrollView>
   );
 }
 
@@ -251,5 +251,4 @@ const styles = StyleSheet.create({
     color: theme.colors.text.primary,
     lineHeight: 24,
   },
-});
 });

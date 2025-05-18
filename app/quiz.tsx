@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Question {
   id: number;
@@ -9,6 +11,7 @@ interface Question {
 }
 
 export default function QuizScreen() {
+  const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
 
@@ -72,26 +75,34 @@ export default function QuizScreen() {
 
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
-    } else {
-      // Quiz completed - handle submission
-      handleQuizCompletion();
     }
   };
 
-  const handleQuizCompletion = () => {
-    // Add your quiz completion logic here
-    // This should save the answers and navigate to the queue screen
+  const handleSubmit = () => {
+    router.replace('/queue');
+  };
+
+  const handleGoHome = () => {
+    router.replace('/(tabs)/home');
   };
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { width: `${progress}%` }]} />
       </View>
 
       <ScrollView style={styles.content}>
+        <TouchableOpacity
+          style={styles.homeButton}
+          onPress={handleGoHome}
+        >
+          <MaterialCommunityIcons name="home" size={24} color="#007AFF" />
+          <Text style={styles.homeButtonText}>Go to Home</Text>
+        </TouchableOpacity>
+
         <Text style={styles.questionNumber}>
           Question {currentQuestion + 1} of {questions.length}
         </Text>
@@ -120,8 +131,21 @@ export default function QuizScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {currentQuestion === questions.length - 1 && (
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              answers[currentQuestion] === undefined && styles.submitButtonDisabled
+            ]}
+            onPress={handleSubmit}
+            disabled={answers[currentQuestion] === undefined}
+          >
+            <Text style={styles.submitButtonText}>Submit</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -156,6 +180,7 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     gap: 15,
+    marginBottom: 30,
   },
   optionButton: {
     padding: 20,
@@ -174,6 +199,33 @@ const styles = StyleSheet.create({
   },
   selectedOptionText: {
     color: '#007AFF',
+    fontWeight: '500',
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    marginBottom: 20,
+  },
+  homeButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    marginLeft: 8,
     fontWeight: '500',
   },
 });
