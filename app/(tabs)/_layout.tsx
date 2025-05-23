@@ -1,9 +1,10 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { LayoutAnimation, Platform, UIManager } from 'react-native';
+import { LayoutAnimation, Platform, UIManager, View, StyleSheet } from 'react-native';
 import { Home, MessageCircle, PenLine } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuthStore } from '../../store/auth';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android') {
@@ -13,12 +14,15 @@ if (Platform.OS === 'android') {
 }
 
 export default function TabLayout() {
+  const { activeGroup } = useAuthStore();
+
   // Use LayoutAnimation when switching tabs
   const handleTabPress = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   };
 
   return (
+    <View style={styles.container}>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#007AFF',
@@ -64,5 +68,12 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

@@ -1,347 +1,297 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, Modal, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { formatDistanceToNow } from 'date-fns';
+import { theme } from '../../constants/theme';
+import { useUserStore } from '../../store/userStore';
+import { supabase } from '../../lib/supabase';
+import { Message, User } from '../../types';
 
-interface PromptAnswerProps {
-  onPressComments: () => void;
+interface ChatMessageProps {
+  message: Message;
+  user: User;
+  isCurrentUser: boolean;
 }
 
-interface CommentModalProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-interface Comment {
-  id: number;
-  user: string;
-  text: string;
-  time: string;
-  avatar: string;
-}
-
-const PromptAnswer: React.FC<PromptAnswerProps> = ({ onPressComments }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser }) => {
   return (
-    <View style={styles.promptContainer}>
-      <View style={styles.promptHeader}>
+    <View style={[
+      styles.messageContainer,
+      isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage
+    ]}>
+      {!isCurrentUser && (
         <Image
-          source={{ uri: 'https://i.pravatar.cc/150?img=1' }}
+          source={{ uri: user.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
           style={styles.avatar}
         />
-        <View style={styles.promptInfo}>
-          <Text style={styles.promptUsername}>Sarah Johnson</Text>
-          <Text style={styles.promptTime}>2 hours ago</Text>
-        </View>
-      </View>
-      <View style={styles.promptContent}>
-        <Text style={styles.promptQuestion}>Today's Prompt: What's one thing you're proud of accomplishing recently?</Text>
-        <Text style={styles.promptAnswer}>
-          I finally finished writing my first short story! It's been a dream of mine for years, and I'm really proud of pushing through the self-doubt to complete it. The process taught me so much about perseverance and creative expression. 🌟
+      )}
+      <View style={[
+        styles.messageBubble,
+        isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+      ]}>
+        {!isCurrentUser && (
+          <Text style={styles.username}>{user.id}</Text>
+        )}
+        <Text style={[
+          styles.messageText,
+          isCurrentUser ? styles.currentUserText : styles.otherUserText
+        ]}>
+          {message.message_text}
         </Text>
-      </View>
-      <View style={styles.promptFooter}>
-        <TouchableOpacity style={styles.promptAction}>
-          <MaterialCommunityIcons name="heart-outline" size={20} color="#666" />
-          <Text style={styles.promptActionText}>24</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.promptAction} onPress={onPressComments}>
-          <MaterialCommunityIcons name="comment-outline" size={20} color="#666" />
-          <Text style={styles.promptActionText}>8</Text>
-        </TouchableOpacity>
+        <Text style={styles.timestamp}>
+          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+        </Text>
       </View>
     </View>
   );
 };
 
-const CommentModal: React.FC<CommentModalProps> = ({ visible, onClose }) => {
-  const [comment, setComment] = useState('');
-
-  const comments: Comment[] = [
-    {
-      id: 1,
-      user: 'Alex Chen',
-      text: "That's amazing! Writing can be so challenging but also incredibly rewarding.",
-      time: '1 hour ago',
-      avatar: 'https://i.pravatar.cc/150?img=2'
-    },
-    {
-      id: 2,
-      user: 'Maria Garcia',
-      text: 'Would love to read it sometime! Keep up the great work!',
-      time: '45 mins ago',
-      avatar: 'https://i.pravatar.cc/150?img=3'
-    },
-    {
-      id: 3,
-      user: 'You',
-      text: 'Thank you both for the encouragement! It means a lot.',
-      time: '30 mins ago',
-      avatar: 'https://i.pravatar.cc/150?img=4'
-    }
-  ];
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Comments</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.commentsList}>
-            {comments.map((comment) => (
-              <View key={comment.id} style={styles.commentItem}>
-                <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
-                <View style={styles.commentContent}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentUsername}>{comment.user}</Text>
-                    <Text style={styles.commentTime}>{comment.time}</Text>
-                  </View>
-                  <Text style={styles.commentText}>{comment.text}</Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.commentInputContainer}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Add a comment..."
-              value={comment}
-              onChangeText={setComment}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.commentSendButton, !comment.trim() && styles.commentSendButtonDisabled]}
-              disabled={!comment.trim()}
-            >
-              <MaterialCommunityIcons name="send" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-interface PromptAnswerData {
-  id: number;
-  user: string;
-  question: string;
-  answer: string;
-  likes: number;
-  comments: number;
-  time: string;
-  avatar: string;
-}
-
 export default function ConnectScreen() {
-  const [isCommentModalVisible, setCommentModalVisible] = useState(false);
+  const { userId, groupId } = useUserStore();
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [users, setUsers] = useState<Record<string, User>>({});
+  const [loading, setLoading] = useState(true);
 
-  const promptAnswers: PromptAnswerData[] = [
-    {
-      id: 1,
-      user: 'Sarah Johnson',
-      question: "What's one thing you're proud of accomplishing recently?",
-      answer: "I finally finished writing my first short story! It's been a dream of mine for years, and I'm really proud of pushing through the self-doubt to complete it. The process taught me so much about perseverance and creative expression. 🌟",
-      likes: 24,
-      comments: 8,
-      time: '2 hours ago',
-      avatar: 'https://i.pravatar.cc/150?img=1'
-    },
-    {
-      id: 2,
-      user: 'Michael Park',
-      question: "What's one thing you're proud of accomplishing recently?",
-      answer: "I ran my first 10K race last weekend! Never thought I could do it, but training consistently for the past 3 months really paid off. The feeling of crossing that finish line was incredible! 🏃‍♂️",
-      likes: 18,
-      comments: 5,
-      time: '3 hours ago',
-      avatar: 'https://i.pravatar.cc/150?img=5'
+  useEffect(() => {
+    if (!groupId) return;
+
+    // Fetch initial messages
+    const fetchMessages = async () => {
+      try {
+        const { data: messageData, error: messageError } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true });
+
+        if (messageError) throw messageError;
+
+        if (messageData) {
+          setMessages(messageData);
+
+          // Fetch user data for messages
+          const userIds = [...new Set(messageData.map(m => m.user_id))];
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .in('id', userIds);
+
+          if (userError) throw userError;
+
+          if (userData) {
+            const userMap = userData.reduce((acc, user) => {
+              acc[user.id] = user;
+              return acc;
+            }, {} as Record<string, User>);
+            setUsers(userMap);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMessages();
+
+    // Subscribe to new messages
+    const subscription = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `group_id=eq.${groupId}`
+        },
+        async (payload) => {
+          const newMessage = payload.new as Message;
+          setMessages(prev => [...prev, newMessage]);
+
+          // Fetch user data if not already cached
+          if (!users[newMessage.user_id]) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', newMessage.user_id)
+              .single();
+
+            if (userData) {
+              setUsers(prev => ({
+                ...prev,
+                [userData.id]: userData
+              }));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [groupId]);
+
+  const handleSend = async () => {
+    if (!message.trim() || !userId || !groupId) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert([
+          {
+            group_id: groupId,
+            user_id: userId,
+            message_text: message.trim(),
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (error) throw error;
+
+      setMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
-  ];
+  };
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.feedContainer}>
-        {promptAnswers.map((prompt) => (
-          <PromptAnswer
-            key={prompt.id}
-            onPressComments={() => setCommentModalVisible(true)}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+      >
+        {messages.map((msg) => (
+          <ChatMessage
+            key={msg.id}
+            message={msg}
+            user={users[msg.user_id]}
+            isCurrentUser={msg.user_id === userId}
           />
         ))}
       </ScrollView>
 
-      <CommentModal
-        visible={isCommentModalVisible}
-        onClose={() => setCommentModalVisible(false)}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Type a message..."
+          placeholderTextColor={theme.colors.text.tertiary}
+          value={message}
+          onChangeText={setMessage}
+          multiline
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={!message.trim()}
+        >
+          <MaterialCommunityIcons
+            name="send"
+            size={24}
+            color={message.trim() ? '#FFFFFF' : theme.colors.text.tertiary}
       />
+        </TouchableOpacity>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
   },
-  feedContainer: {
+  messagesContainer: {
     flex: 1,
-    padding: 10,
   },
-  promptContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#eee',
+  messagesContent: {
+    padding: theme.spacing.md,
   },
-  promptHeader: {
+  messageContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: theme.spacing.md,
+    maxWidth: '80%',
+  },
+  currentUserMessage: {
+    alignSelf: 'flex-end',
+  },
+  otherUserMessage: {
+    alignSelf: 'flex-start',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  promptInfo: {
-    flex: 1,
-  },
-  promptUsername: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  promptTime: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  promptContent: {
-    marginBottom: 12,
-  },
-  promptQuestion: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-    fontStyle: 'italic',
-  },
-  promptAnswer: {
-    fontSize: 15,
-    color: '#333',
-    lineHeight: 20,
-  },
-  promptFooter: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
-  },
-  promptAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  promptActionText: {
-    marginLeft: 4,
-    color: '#666',
-    fontSize: 14,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  commentsList: {
-    flex: 1,
-    padding: 15,
-  },
-  commentItem: {
-    flexDirection: 'row',
-    marginBottom: 15,
-  },
-  commentAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 10,
+    marginRight: theme.spacing.sm,
   },
-  commentContent: {
-    flex: 1,
+  messageBubble: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    maxWidth: '100%',
   },
-  commentHeader: {
+  currentUserBubble: {
+    backgroundColor: theme.colors.primary,
+  },
+  otherUserBubble: {
+    backgroundColor: theme.colors.surface,
+  },
+  username: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing.xs,
+  },
+  messageText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.md,
+    marginBottom: theme.spacing.xs,
+  },
+  currentUserText: {
+    color: '#FFFFFF',
+  },
+  otherUserText: {
+    color: theme.colors.text.primary,
+  },
+  timestamp: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.text.tertiary,
+    alignSelf: 'flex-end',
+  },
+  inputContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  commentUsername: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  commentTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  commentText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 18,
-  },
-  commentInputContainer: {
-    flexDirection: 'row',
-    padding: 15,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: theme.colors.border,
   },
-  commentInput: {
+  input: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginRight: theme.spacing.md,
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
     maxHeight: 100,
   },
-  commentSendButton: {
+  sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  commentSendButtonDisabled: {
-    backgroundColor: '#ccc',
+  sendButtonDisabled: {
+    backgroundColor: theme.colors.surface,
   },
 }); 

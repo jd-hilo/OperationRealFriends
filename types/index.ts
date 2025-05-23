@@ -10,6 +10,8 @@ export type User = {
   created_at: string;
   quiz_answers: QuizAnswers;
   current_group_id: string | null;
+  avatar_url?: string;
+  email?: string;
 };
 
 export type QuizAnswers = {
@@ -27,6 +29,8 @@ export type Group = {
   streak_count: number;
   is_active: boolean;
   created_at: string;
+  current_prompt_id: string;
+  current_prompt: string;
 };
 
 export type Prompt = {
