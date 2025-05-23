@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
-import { useUserStore } from '../store/userStore';
+import { useAuthStore } from '../store/auth';
 import { View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 
@@ -23,10 +23,9 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const { user } = useAuthStore();
 
   useFrameworkReady();
-
-  const { userId, checkExistingUser } = useUserStore();
 
   const [fontsLoaded, fontError] = useFonts({
     'Nunito-Regular': Nunito_400Regular,
@@ -35,40 +34,31 @@ export default function RootLayout() {
     'Poppins-SemiBold': Poppins_600SemiBold,
   });
 
-  useEffect(() => {
-    async function prepare() {
-      try {
-        // Pre-load any data if needed
-        await checkExistingUser();
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-
-    prepare();
-  }, [checkExistingUser]);
-
-  // Only redirect if we're at the root path
+  // Handle routing based on auth state
   useEffect(() => {
     if (!fontsLoaded) return;
 
-    // Check if user has completed onboarding
-    const hasCompletedOnboarding = false; // Replace with your actual check
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
+    const isEntryScreen = segments[0] === 'entry';
+    const isSignupScreen = segments[1] === 'signup';
+    const isQuizScreen = segments[0] === 'quiz';
 
-    if (!hasCompletedOnboarding) {
-      // If not completed onboarding, redirect to quiz
-      router.replace('/quiz');
+    // If we're on the entry screen, signup screen, or quiz screen, stay there
+    if (isEntryScreen || (inAuthGroup && isSignupScreen) || isQuizScreen) return;
+
+    if (!user) {
+      // Not signed in - go to entry screen
+      if (!isEntryScreen && !inAuthGroup) {
+        router.replace('/entry');
+      }
     } else {
-      // If completed onboarding, check if in queue
-      const isInQueue = false; // Replace with your actual check
-
-      if (isInQueue) {
-        router.replace('/queue');
-      } else {
+      // Signed in - show main app
+      if (!inTabsGroup && !isQuizScreen) {
         router.replace('/(tabs)/home');
       }
     }
-  }, [fontsLoaded]);
+  }, [user, segments, fontsLoaded]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -84,18 +74,7 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <StatusBar style="dark" />
-      <Stack 
-        screenOptions={{ 
-          headerShown: false,
-          contentStyle: { backgroundColor: '#FFFFFF' }
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="entry" />
-        <Stack.Screen name="quiz" />
-        <Stack.Screen name="queue" />
-      </Stack>
+      <Stack screenOptions={{ headerShown: false }} />
     </View>
   );
 }

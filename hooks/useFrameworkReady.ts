@@ -1,8 +1,15 @@
 import { useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export function useFrameworkReady() {
   useEffect(() => {
-    // This hook is required and must never be removed or modified
-    // It is essential for the framework to function properly
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 }

@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
-import { formatDistanceToNow } from 'date-fns';
-import { Smile, Clock, PenLine, Award } from 'lucide-react-native';
+import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
+import { Smile, Clock, PenLine, Award, LogOut, RefreshCw } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Card from '../../components/Card';
 import MemberIcon from '../../components/MemberIcon';
 import { useUserStore } from '../../store/userStore';
+import { useAuthStore } from '../../store/auth';
 import { supabase } from '../../lib/supabase';
-import { Group, Prompt, Submission } from '../../types';
+import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -66,20 +67,17 @@ const LocationPin: React.FC<LocationPinProps> = ({ x, y, delay }) => {
   );
 };
 
-const MemberAvatar: React.FC<{ submitted: boolean; index: number }> = ({ submitted, index }) => {
-  // Sample profile pictures - in a real app, these would come from user data
-  const profilePictures = [
-    'https://i.pravatar.cc/150?img=1',
-    'https://i.pravatar.cc/150?img=2',
-    'https://i.pravatar.cc/150?img=3',
-    'https://i.pravatar.cc/150?img=4',
-    'https://i.pravatar.cc/150?img=5',
-  ];
+interface MemberAvatarProps {
+  user: User;
+  submitted: boolean;
+  index: number;
+}
 
+const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) => {
   return (
     <View style={styles.avatarContainer}>
       <Image
-        source={{ uri: profilePictures[index] }}
+        source={{ uri: user.avatar_url || `https://i.pravatar.cc/150?img=${index + 1}` }}
         style={styles.avatar}
       />
       {!submitted && (
@@ -94,87 +92,200 @@ const MemberAvatar: React.FC<{ submitted: boolean; index: number }> = ({ submitt
 };
 
 export default function Dashboard() {
-  const { userId, groupId } = useUserStore();
+  const { userId, groupId, refreshGroupId, initialize } = useUserStore();
+  const { signOut, hasCompletedQuiz, user: authUser } = useAuthStore();
   const [group, setGroup] = useState<Group | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<Prompt | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!groupId) return;
+    initialize();
+  }, [authUser?.id]);
 
-      try {
-        setLoading(true);
-        
-        // Fetch group data
-        const { data: groupData, error: groupError } = await supabase
-          .from('groups')
-          .select('*')
-          .eq('id', groupId)
-          .single();
-        
-        if (groupError) throw groupError;
-        
-        // Fetch today's prompt
-        const { data: promptData, error: promptError } = await supabase
-          .from('prompts')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (promptError) throw promptError;
-        
-        // Fetch submissions for today's prompt from group members
-        if (promptData && groupData) {
-          const { data: submissionsData, error: submissionsError } = await supabase
-            .from('submissions')
-            .select('*')
-            .eq('prompt_id', promptData.id)
-            .eq('group_id', groupId)
-            .order('created_at', { ascending: true });
-          
-          if (submissionsError) throw submissionsError;
-          
-          setGroup(groupData);
-          setCurrentPrompt(promptData);
-          setSubmissions(submissionsData || []);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
+    const fetchData = async () => {
+    if (!userId) {
+      console.log('No userId available');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Debug: Query the group directly
+      const { data: debugGroup, error: debugError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+      
+      console.log('Debug - Direct group query result:', debugGroup);
+      if (debugError) {
+        console.error('Debug - Direct group query error:', debugError);
       }
-    };
+      
+      // Refresh group ID first
+      const currentGroupId = await refreshGroupId();
+      console.log('Current groupId after refresh:', currentGroupId);
+      
+      if (!currentGroupId) {
+        console.log('No groupId available after refresh');
+        setGroup(null);
+        setCurrentPrompt(null);
+        setSubmissions([]);
+        return;
+      }
+      
+      // Fetch group data
+      console.log('Attempting to fetch group with ID:', currentGroupId);
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('*, prompts!current_prompt_id(*)')
+        .eq('id', currentGroupId)
+        .single();
+        
+      if (groupError) {
+        console.error('Error fetching group:', groupError);
+        console.log('Group ID that failed:', currentGroupId);
+        throw groupError;
+      }
+      
+      if (!groupData) {
+        console.log('No group data returned for ID:', currentGroupId);
+        setGroup(null);
+        setCurrentPrompt(null);
+        setSubmissions([]);
+        return;
+      }
+
+      console.log('Successfully fetched group data:', groupData);
+      setGroup(groupData);
+        
+      // Fetch the prompt associated with the group
+      if (!groupData.current_prompt_id) {
+        console.log('No current_prompt_id in group data');
+        return;
+      }
+
+      console.log('Fetching prompt with ID:', groupData.current_prompt_id);
+      const { data: promptData, error: promptError } = await supabase
+        .from('prompts')
+        .select('*')
+        .eq('id', groupData.current_prompt_id)
+        .single();
+        
+      if (promptError) {
+        console.error('Error fetching prompt:', promptError);
+        throw promptError;
+      }
+        
+      // Fetch submissions for today's prompt from group members
+      if (promptData) {
+        console.log('Fetching submissions for prompt:', promptData.id);
+        const { data: submissionsData, error: submissionsError } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('prompt_id', promptData.id)
+          .eq('group_id', currentGroupId)
+          .order('created_at', { ascending: true });
+        
+        if (submissionsError) {
+          console.error('Error fetching submissions:', submissionsError);
+          throw submissionsError;
+        }
+        
+        console.log('Successfully fetched submissions:', submissionsData?.length || 0);
+        setCurrentPrompt(promptData);
+        setSubmissions(submissionsData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
     
+  useEffect(() => {
     fetchData();
-  }, [groupId]);
+
+    // Set up timer update
+    const timer = setInterval(() => {
+      if (group?.created_at) {
+        const nextCheckIn = new Date(group.created_at);
+        nextCheckIn.setHours(nextCheckIn.getHours() + 24);
+        setTimeLeft(formatDistanceToNowStrict(nextCheckIn, { addSuffix: true }));
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [userId]);
 
   const hasSubmitted = submissions.some(s => s.user_id === userId);
   const memberCount = group?.member_ids?.length || 0;
   const submissionCount = submissions.length;
   
-  const nextCheckInTime = "12:00 PM tomorrow"; // For MVP, this is static
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/entry');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
-  // Updated user locations with more realistic coordinates
-  const userLocations = [
-    { id: 1, x: width * 0.25, y: 120, delay: 0, name: 'New York' },    // USA
-    { id: 2, x: width * 0.48, y: 110, delay: 500, name: 'London' },    // UK
-    { id: 3, x: width * 0.75, y: 130, delay: 1000, name: 'Tokyo' },    // Japan
-    { id: 4, x: width * 0.35, y: 180, delay: 1500, name: 'Sydney' },   // Australia
-  ];
+  const handleJoinGroup = async () => {
+    try {
+      setError(null);
+      setIsJoining(true);
+      if (!authUser?.id) {
+        setError('Please sign in to join a group');
+        return;
+      }
+      if (!userId) {
+        setError('Please wait while we load your account...');
+        return;
+      }
+      console.log('Joining group with user ID:', userId);
+      await useUserStore.getState().assignToGroup();
+      console.log('Group assignment completed, refreshing data...');
+      await fetchData();
+      console.log('Data refresh completed');
+    } catch (err) {
+      console.error('Error joining group:', err);
+      setError(err instanceof Error ? err.message : 'Failed to join group. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Crew</Text>
         
+        <View style={styles.headerRight}>
         <View style={styles.streakContainer}>
           <Award size={24} color={theme.colors.primary} />
           <Text style={styles.streakText}>
-            {group?.streak_count || 0} day streak
+              {group?.streak_count ?? 0} day streak
           </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={fetchData}
+          >
+            <RefreshCw size={24} color={theme.colors.text.secondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+          >
+            <LogOut size={24} color={theme.colors.text.secondary} />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -185,95 +296,89 @@ export default function Dashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Members</Text>
           <View style={styles.membersContainer}>
-            {Array(5).fill(0).map((_, i) => (
+            {group?.member_ids?.map((memberId, i) => {
+              console.log('Rendering member:', memberId);
+              return (
+                <View key={memberId} style={styles.memberItem}>
               <MemberAvatar 
-                key={i} 
-                submitted={i < submissionCount}
+                    user={{
+                      id: memberId,
+                      email: `member${i + 1}@example.com`,
+                      created_at: new Date().toISOString(),
+                      quiz_answers: {
+                        question1: 0,
+                        question2: 0,
+                        question3: 0,
+                        question4: 0,
+                        question5: 0,
+                        question6: 0
+                      },
+                      current_group_id: groupId
+                    }}
+                    submitted={submissions.some(s => s.user_id === memberId)}
                 index={i}
               />
-            ))}
+                  <Text style={styles.memberName}>
+                    Member {i + 1}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
           <Text style={styles.membersStats}>
-            {submissionCount}/{memberCount} checked in today
+            {submissions.length}/{group?.member_ids?.length ?? 0} checked in today
           </Text>
         </View>
         
-        <Card style={styles.promptCard}>
-          <View style={styles.promptHeader}>
-            <View style={styles.promptIconContainer}>
-              <PenLine size={20} color="#FFFFFF" />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Next Check-in</Text>
+          <Card style={styles.timerCard}>
+            <View style={styles.timerContent}>
+              <Clock size={24} color={theme.colors.primary} />
+              <Text style={styles.timerText}>{timeLeft}</Text>
             </View>
-            <Text style={styles.promptTitle}>Today's Prompt</Text>
+          </Card>
           </View>
           
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Today's Prompt</Text>
+          <Card style={styles.promptCard}>
           <Text style={styles.promptText}>
-            {currentPrompt?.question_text || "Loading today's question..."}
+              {group?.current_prompt || currentPrompt?.question_text || "Loading prompt..."}
           </Text>
-          
+            {!hasCompletedQuiz ? (
           <TouchableOpacity 
-            style={[
-              styles.promptButton,
-              hasSubmitted && styles.promptButtonDisabled
-            ]}
-            onPress={() => router.push('/prompt')}
-            disabled={hasSubmitted}
-          >
-            <Text style={[
-              styles.promptButtonText,
-              hasSubmitted && styles.promptButtonTextDisabled
-            ]}>
-              {hasSubmitted ? 'Submitted' : 'Respond Now'}
+                style={[styles.promptButton, styles.quizButton]}
+                onPress={() => router.push('/quiz')}
+              >
+                <Text style={styles.promptButtonText}>Take Quiz First</Text>
+              </TouchableOpacity>
+            ) : !groupId ? (
+              <View>
+                <TouchableOpacity 
+                  style={[styles.promptButton, styles.joinButton]}
+                  onPress={handleJoinGroup}
+                  disabled={isJoining}
+                >
+                  <Text style={styles.promptButtonText}>
+                    {isJoining ? 'Joining...' : 'Join Group'}
             </Text>
           </TouchableOpacity>
-        </Card>
-        
-        <Card style={styles.nextCheckInCard}>
-          <View style={styles.nextCheckInHeader}>
-            <Clock size={20} color={theme.colors.text.primary} />
-            <Text style={styles.nextCheckInTitle}>Next Check-in</Text>
-          </View>
-          <Text style={styles.nextCheckInTime}>{nextCheckInTime}</Text>
-        </Card>
-
-        <View style={styles.mapSection}>
-          <Text style={styles.sectionTitle}>Global Community</Text>
-          <View style={styles.mapContainer}>
-            <Image
-              source={{ uri: 'https://cdn.jsdelivr.net/gh/djaiss/mapsicon@master/all/512/world.png' }}
-              style={styles.mapImage}
-              resizeMode="contain"
-            />
-            {userLocations.map((location) => (
-              <LocationPin
-                key={location.id}
-                x={location.x}
-                y={location.y}
-                delay={location.delay}
-              />
-            ))}
-            <View style={styles.mapOverlay}>
-              <View style={styles.mapLegend}>
-                <View style={styles.legendItem}>
-                  <View style={styles.legendDot} />
-                  <Text style={styles.legendText}>Active Users</Text>
-                </View>
+                {error && (
+                  <Text style={styles.errorText}>{error}</Text>
+                )}
               </View>
-            </View>
-          </View>
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Active Users</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Countries</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Time Zones</Text>
-            </View>
-          </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.promptButton}
+                onPress={() => router.push('/prompt')}
+              >
+                <Text style={styles.promptButtonText}>
+                  {hasSubmitted ? 'View Responses' : 'Answer Prompt'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Card>
         </View>
       </ScrollView>
     </View>
@@ -286,38 +391,34 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    backgroundColor: theme.colors.background,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   title: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.xxl,
+    fontSize: theme.typography.fontSize.xl,
     color: theme.colors.text.primary,
   },
   streakContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
+    gap: theme.spacing.sm,
   },
   streakText: {
-    fontFamily: 'Nunito-SemiBold',
+    fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
-    marginLeft: theme.spacing.xs,
+    color: theme.colors.text.secondary,
   },
   scrollContent: {
     padding: theme.spacing.lg,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
   },
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
@@ -327,191 +428,33 @@ const styles = StyleSheet.create({
   },
   membersContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-  },
-  membersStats: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-  },
-  promptCard: {
-    marginBottom: theme.spacing.lg,
-  },
-  promptHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  promptIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: theme.spacing.sm,
-  },
-  promptTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
-  },
-  promptText: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.lg,
-    lineHeight: 24,
-  },
-  promptButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    alignItems: 'center',
-  },
-  promptButtonDisabled: {
-    backgroundColor: theme.colors.surface,
-  },
-  promptButtonText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.md,
-    color: '#FFFFFF',
-  },
-  promptButtonTextDisabled: {
-    color: theme.colors.text.secondary,
-  },
-  nextCheckInCard: {
-    marginBottom: theme.spacing.lg,
-  },
-  nextCheckInHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
-  nextCheckInTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
-    marginLeft: theme.spacing.sm,
-  },
-  nextCheckInTime: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
-  },
-  mapSection: {
-    padding: theme.spacing.lg,
-  },
-  mapContainer: {
-    height: 300,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    position: 'relative',
-    marginBottom: theme.spacing.md,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.7,
-    tintColor: theme.colors.text.secondary,
-  },
-  mapOverlay: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-  },
-  mapLegend: {
-    flexDirection: 'row',
+  memberItem: {
     alignItems: 'center',
+    gap: theme.spacing.xs,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: theme.spacing.sm,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    marginRight: 4,
-  },
-  legendText: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.secondary,
-  },
-  pinContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinPulse: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.xl,
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.xs,
-  },
-  statLabel: {
+  memberName: {
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
+    textAlign: 'center',
   },
   avatarContainer: {
     position: 'relative',
     width: 50,
     height: 50,
-    borderRadius: 25,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
   },
   avatar: {
-    width: '100%',
-    height: '100%',
+    width: 50,
+    height: 50,
     borderRadius: 25,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
   },
   avatarOverlay: {
     position: 'absolute',
@@ -520,15 +463,87 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
   },
   overlayContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  membersStats: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+  timerCard: {
+    padding: theme.spacing.lg,
+  },
+  timerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  timerText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.text.primary,
+  },
+  promptCard: {
+    padding: theme.spacing.lg,
+  },
+  promptText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing.md,
+  },
+  promptButton: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  promptButtonText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: theme.typography.fontSize.md,
+    color: '#FFFFFF',
+  },
+  pinContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  pinPulse: {
+    position: 'absolute',
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+  },
+  headerRight: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  signOutButton: {
+    padding: theme.spacing.sm,
+  },
+  quizButton: {
+    backgroundColor: theme.colors.secondary,
+  },
+  joinButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  refreshButton: {
+    padding: theme.spacing.sm,
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 8,
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
   },
 });

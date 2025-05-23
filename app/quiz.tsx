@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../store/auth';
+import { supabase } from '../lib/supabase';
 
 interface Question {
   id: number;
@@ -78,12 +80,40 @@ export default function QuizScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    router.replace('/queue');
+  const handleSubmit = async () => {
+    try {
+      const { user, setQuizCompleted } = useAuthStore.getState();
+      if (!user) throw new Error('No user found');
+
+      // Convert answers array to a JSON object with question IDs
+      const quizAnswers = answers.reduce((acc, answer, index) => {
+        acc[`question${index + 1}`] = answer;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Update user record in Supabase
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          quiz_answers: quizAnswers,
+          has_completed_quiz: true
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      await setQuizCompleted();
+      
+      // Navigate back to home
+      router.push('/(tabs)/home');
+    } catch (error) {
+      console.error('Error completing quiz:', error);
+    }
   };
 
   const handleGoHome = () => {
-    router.replace('/(tabs)/home');
+    router.push('/(tabs)/home');
   };
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
