@@ -150,53 +150,58 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   assignToGroup: async () => {
+    const { userId } = get();
+    if (!userId) throw new Error('No user ID available');
+
     try {
-      const { userId } = get();
-      if (!userId) {
-        console.error('No userId available');
-        throw new Error('No userId available');
-      }
-      const groupId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-
-      console.log('Joining group with user ID:', userId);
-
-      // Fetch current member_ids
-      const { data: group, error: fetchError } = await supabase
+      // Fetch the current group data to get the existing member_ids
+      const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .select('member_ids')
-        .eq('id', groupId)
+        .eq('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
         .single();
 
-      if (fetchError) throw fetchError;
+      if (groupError) {
+        // If the group does not exist, create it
+        if (groupError.code === 'PGRST116') {
+          const { error: insertError } = await supabase
+            .from('groups')
+            .insert([
+              { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', member_ids: [userId] }
+            ]);
+          if (insertError) throw insertError;
+        } else {
+          throw groupError;
+        }
+      } else {
+        // Add the user to the member_ids array if not already included
+        const updatedMemberIds = groupData.member_ids || [];
+        if (!updatedMemberIds.includes(userId)) {
+          updatedMemberIds.push(userId);
+        }
 
-      const memberIds = group.member_ids || [];
-      if (!memberIds.includes(userId)) {
-        const { error: updateError } = await supabase
+        // Update the group's member_ids
+        const { error: updateGroupError } = await supabase
           .from('groups')
-          .update({ member_ids: [...memberIds, userId] })
-          .eq('id', groupId);
-        if (updateError) throw updateError;
+          .update({ member_ids: updatedMemberIds })
+          .eq('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+
+        if (updateGroupError) throw updateGroupError;
       }
 
-      // Then update user's current_group_id
-      const { error: userError } = await supabase
+      // Update the user's current_group_id
+      const { error: updateUserError } = await supabase
         .from('users')
-        .update({
-          current_group_id: groupId,
-        })
+        .update({ current_group_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' })
         .eq('id', userId);
 
-      if (userError) {
-        console.error('Error updating user current_group_id:', userError);
-        throw userError;
-      }
+      if (updateUserError) throw updateUserError;
 
-      // Update local state
-      set({ groupId });
-      console.log('User successfully assigned to group:', groupId);
-    } catch (err) {
-      console.error('assignToGroup error:', err);
-      throw err;
+      set({ groupId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' });
+      console.log('Successfully assigned user to group');
+    } catch (error) {
+      console.error('assignToGroup error:', error);
+      throw error;
     }
   }
 }));

@@ -1,5 +1,4 @@
-import React from 'react';
-import { useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -13,9 +12,10 @@ import {
 } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
-import { useAuthStore } from '../store/auth';
 import { View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
+import { supabase } from '../lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -23,7 +23,8 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { user } = useAuthStore();
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useFrameworkReady();
 
@@ -34,31 +35,37 @@ export default function RootLayout() {
     'Poppins-SemiBold': Poppins_600SemiBold,
   });
 
+  // Check for existing session on app start
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Handle routing based on auth state
   useEffect(() => {
-    if (!fontsLoaded) return;
+    if (isLoading || !fontsLoaded) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
-    const isEntryScreen = segments[0] === 'entry';
-    const isSignupScreen = segments[1] === 'signup';
-    const isQuizScreen = segments[0] === 'quiz';
-
-    // If we're on the entry screen, signup screen, or quiz screen, stay there
-    if (isEntryScreen || (inAuthGroup && isSignupScreen) || isQuizScreen) return;
-
-    if (!user) {
-      // Not signed in - go to entry screen
-      if (!isEntryScreen && !inAuthGroup) {
-        router.replace('/entry');
-      }
+    if (session) {
+      // If authenticated, go to tabs
+      router.replace('/(tabs)/home');
     } else {
-      // Signed in - show main app
-      if (!inTabsGroup && !isQuizScreen) {
-        router.replace('/(tabs)/home');
-      }
+      // If not authenticated, go to welcome screen
+      router.replace('/entry');
     }
-  }, [user, segments, fontsLoaded]);
+  }, [session, isLoading, fontsLoaded]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {

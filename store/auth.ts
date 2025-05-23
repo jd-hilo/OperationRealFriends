@@ -15,6 +15,7 @@ interface AuthState {
   joinQueue: () => Promise<void>;
   leaveQueue: () => Promise<void>;
   setActiveGroup: (groupId: string | null) => void;
+  setUser: (user: any | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -26,6 +27,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
+      // Get the current session from Supabase
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
 
@@ -55,6 +57,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ loading: false });
       }
+
+      // Set up auth state change listener
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        if (session?.user) {
+          set({ user: session.user, session });
+        } else {
+          set({ user: null, session: null });
+        }
+      });
     } catch (error) {
       console.error('Error initializing auth:', error);
       set({ loading: false });
@@ -257,5 +269,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setActiveGroup: (groupId) => set({ activeGroup: groupId })
+  setActiveGroup: (groupId) => set({ activeGroup: groupId }),
+
+  setUser: (user) => set({ user })
 })); 

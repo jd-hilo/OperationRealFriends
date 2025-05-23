@@ -54,20 +54,31 @@ export default function ConnectScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId) {
+      console.log('No groupId available, returning early');
+      return;
+    }
+
+    console.log('Fetching messages for groupId:', groupId);
 
     // Fetch initial messages
     const fetchMessages = async () => {
       try {
+        console.log('Fetching messages for groupId:', groupId);
         const { data: messageData, error: messageError } = await supabase
           .from('messages')
           .select('*')
           .eq('group_id', groupId)
           .order('created_at', { ascending: true });
 
-        if (messageError) throw messageError;
+        if (messageError) {
+          console.error('Error fetching messages:', messageError);
+          return;
+        }
 
         if (messageData) {
+          console.log('Fetched messages:', messageData);
+          console.log('Group IDs in messages:', messageData.map(m => m.group_id));
           setMessages(messageData);
 
           // Fetch user data for messages
@@ -77,7 +88,10 @@ export default function ConnectScreen() {
             .select('*')
             .in('id', userIds);
 
-          if (userError) throw userError;
+          if (userError) {
+            console.error('Error fetching user data:', userError);
+            return;
+          }
 
           if (userData) {
             const userMap = userData.reduce((acc, user) => {
@@ -196,9 +210,9 @@ export default function ConnectScreen() {
             name="send"
             size={24}
             color={message.trim() ? '#FFFFFF' : theme.colors.text.tertiary}
-      />
+          />
         </TouchableOpacity>
-    </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
