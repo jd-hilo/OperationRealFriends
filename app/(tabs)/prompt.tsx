@@ -12,7 +12,7 @@ import {
   Image
 } from 'react-native';
 import { format } from 'date-fns';
-import { CheckCircle2, Lightbulb } from 'lucide-react-native';
+import { CheckCircle2, Lightbulb, Mic, Camera, Type } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
@@ -122,41 +122,98 @@ export default function PromptScreen() {
           setResponse(userSubmission.response_text);
         }
         
-        // Fetch all submissions for this group
-        console.log('Fetching all submissions for group:', groupData.id);
-        const { data: allSubmissions, error: allSubmissionsError } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('group_id', groupData.id)
-          .order('created_at', { ascending: true });
+        // Only fetch submissions if we have a prompt
+        if (!groupData.prompts?.id) {
+          console.log('No prompt found for this group');
+          return;
+        }
+
+        // Fetch all submissions for testing
+        console.log('Fetching all submissions for testing');
+        console.log('Current user ID:', user.id);
+        console.log('Current group ID:', groupData.id);
+        console.log('Current prompt ID:', groupData.prompts.id);
+        console.log('Group member IDs:', groupData.member_ids);
         
-        if (allSubmissionsError) {
-          console.error('Error fetching submissions:', allSubmissionsError);
-        } else {
-          console.log('Fetched submissions:', allSubmissions?.length || 0);
-          setSubmissions(allSubmissions || []);
+        try {
+          // First check if user is in the group
+          const isUserInGroup = groupData.member_ids.includes(user.id);
+          console.log('Is user in group:', isUserInGroup);
 
-          // Fetch user data for submissions
-          const userIds = [...new Set(allSubmissions?.map(s => s.user_id) || [])];
-          console.log('Fetching user data for IDs:', userIds);
+          // First try to fetch any submissions for this prompt
+          const { data: promptSubmissions, error: promptSubmissionsError } = await supabase
+            .from('submissions')
+            .select('*')
+            .eq('prompt_id', groupData.prompts.id);
           
-          if (userIds.length > 0) {
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .in('id', userIds);
-
-            if (userError) {
-              console.error('Error fetching user data:', userError);
-            } else if (userData) {
-              console.log('Fetched user data:', userData.length);
-              const userMap = userData.reduce((acc, user) => {
-                acc[user.id] = user;
-                return acc;
-              }, {} as Record<string, User>);
-              setUsers(userMap);
-            }
+          console.log('All submissions for this prompt:', promptSubmissions);
+          if (promptSubmissionsError) {
+            console.error('Error fetching prompt submissions:', promptSubmissionsError);
           }
+
+          // Now fetch submissions for this group and prompt
+          const { data: allSubmissions, error: allSubmissionsError } = await supabase
+            .from('submissions')
+            .select('*')
+            .eq('group_id', groupData.id)
+            .eq('prompt_id', groupData.prompts.id)
+            .order('created_at', { ascending: true });
+          
+          if (allSubmissionsError) {
+            console.error('Error fetching submissions:', allSubmissionsError);
+            return;
+          }
+
+          console.log('Raw submissions data for group and prompt:', allSubmissions);
+          
+          if (!allSubmissions || allSubmissions.length === 0) {
+            console.log('No submissions found in the database for this group and prompt');
+            return;
+          }
+
+          // Now fetch the related user and prompt data
+          const { data: submissionsWithRelations, error: relationsError } = await supabase
+            .from('submissions')
+            .select(`
+              id,
+              user_id,
+              group_id,
+              prompt_id,
+              response_text,
+              created_at,
+              users:user_id (
+                id,
+                email
+              ),
+              prompts:prompt_id (
+                id,
+                content
+              )
+            `)
+            .eq('group_id', groupData.id)
+            .eq('prompt_id', groupData.prompts.id)
+            .order('created_at', { ascending: true });
+          
+          if (relationsError) {
+            console.error('Error fetching submissions with relations:', relationsError);
+            return;
+          }
+
+          console.log('Submissions with relations:', submissionsWithRelations);
+          setSubmissions(submissionsWithRelations || []);
+
+          // Create user map from the joined data
+          const userMap = submissionsWithRelations?.reduce((acc, submission) => {
+            const user = submission.users as unknown as User;
+            if (user) {
+              acc[user.id] = user;
+            }
+            return acc;
+          }, {} as Record<string, User>);
+          
+          setUsers(userMap || {});
+        } catch (error) {
+          console.error('Unexpected error fetching submissions:', error);
         }
 
         // Set up subscription for new submissions
@@ -173,23 +230,22 @@ export default function PromptScreen() {
             async (payload) => {
               console.log('New submission received:', payload);
               const newSubmission = payload.new as Submission;
-              setSubmissions(prev => [...prev, newSubmission]);
+              
+              // Fetch the user data for the new submission
+              const { data: userData } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', newSubmission.user_id)
+                .single();
 
-              // Fetch user data if not already cached
-              if (!users[newSubmission.user_id]) {
-                const { data: userData } = await supabase
-                  .from('users')
-                  .select('*')
-                  .eq('id', newSubmission.user_id)
-                  .single();
-
-                if (userData) {
-                  setUsers(prev => ({
-                    ...prev,
-                    [userData.id]: userData
-                  }));
-                }
+              if (userData) {
+                setUsers(prev => ({
+                  ...prev,
+                  [userData.id]: userData
+                }));
               }
+              
+              setSubmissions(prev => [...prev, newSubmission]);
             }
           )
           .subscribe();
@@ -250,6 +306,17 @@ export default function PromptScreen() {
     }
   };
 
+  const renderPromptTypeIcon = () => {
+    switch (prompt?.prompt_type) {
+      case 'audio':
+        return <Mic size={24} color={theme.colors.primary} />;
+      case 'photo':
+        return <Camera size={24} color={theme.colors.primary} />;
+      default:
+        return <Type size={24} color={theme.colors.primary} />;
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -257,36 +324,39 @@ export default function PromptScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView style={styles.scrollView}>
-        <View style={styles.promptContainer}>
-          <Text style={styles.promptTitle}>Today's Prompt</Text>
+      <View style={styles.promptContainer}>
+          <View style={styles.promptHeader}>
+        <Text style={styles.promptTitle}>Today's Prompt</Text>
+            {renderPromptTypeIcon()}
+          </View>
           <Text style={styles.promptText}>
-            {prompt?.question_text || "Loading prompt..."}
+            {prompt?.content || "Loading prompt..."}
           </Text>
-        </View>
+      </View>
 
-        <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
           {!hasSubmitted ? (
-            <>
-              <TextInput
-                style={styles.input}
-                multiline
-                placeholder="Type your response here..."
-                placeholderTextColor={theme.colors.text.tertiary}
-                value={response}
-                onChangeText={handleTextChange}
-              />
-              <View style={styles.characterCountContainer}>
-                <Text style={styles.characterCount}>
-                  {characterCount}/{MAX_CHARS}
-                </Text>
-              </View>
-              <Button
-                title="Submit Response"
-                onPress={handleSubmit}
-                loading={loading}
-                disabled={response.trim().length === 0 || loading}
-              />
-            </>
+          <>
+            <TextInput
+              style={styles.input}
+              multiline
+              placeholder="Type your response here..."
+              placeholderTextColor={theme.colors.text.tertiary}
+              value={response}
+              onChangeText={handleTextChange}
+            />
+            <View style={styles.characterCountContainer}>
+              <Text style={styles.characterCount}>
+                {characterCount}/{MAX_CHARS}
+              </Text>
+            </View>
+            <Button
+              title="Submit Response"
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={response.trim().length === 0 || loading}
+            />
+          </>
           ) : (
             <Card style={styles.submissionCard}>
               <View style={styles.submissionHeader}>
@@ -304,24 +374,24 @@ export default function PromptScreen() {
               </View>
               <Text style={styles.submissionText}>{response}</Text>
             </Card>
-          )}
-        </View>
+        )}
+      </View>
 
-        <View style={styles.responsesContainer}>
-          <Text style={styles.responsesTitle}>Group Responses</Text>
+      <View style={styles.responsesContainer}>
+        <Text style={styles.responsesTitle}>Group Responses</Text>
           {submissions.length === 0 ? (
             <Text style={styles.noResponsesText}>No responses yet. Be the first to share!</Text>
           ) : (
             submissions.map((submission) => (
-              <SubmissionCard
-                key={submission.id}
-                submission={submission}
-                user={users[submission.user_id]}
+          <SubmissionCard
+            key={submission.id}
+            submission={submission}
+            user={users[submission.user_id]}
                 isCurrentUser={submission.user_id === user?.id}
-              />
+          />
             ))
           )}
-        </View>
+      </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -341,10 +411,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+  promptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
   promptTitle: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
     fontWeight: '600',
   },
   promptText: {
