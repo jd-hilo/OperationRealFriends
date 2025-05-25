@@ -36,19 +36,22 @@ export interface Group {
   id: string;
   name: string;
   created_at: string;
-  current_prompt_id: string | null;
-  current_prompt: string;
-  streak_count: number;
+  current_prompt_id?: string;
+  next_prompt_due?: string;
+  streak_count?: number;
   is_active: boolean;
   members?: User[];
+  current_prompt?: Prompt;
   prompts?: Prompt[];
 }
 
-export interface Prompt {
+export type Prompt = {
   id: string;
-  question_text: string;
+  content: string;
   created_at: string;
-}
+  prompt_type: 'text' | 'audio' | 'photo';
+  due_date: string;
+};
 
 export interface Submission {
   id: string;

@@ -95,10 +95,10 @@ export default function QuizScreen() {
   const handleAnswer = async (answer: string) => {
     try {
       const newAnswers = { ...answers, [currentQuestion]: answer };
-      setAnswers(newAnswers);
+    setAnswers(newAnswers);
 
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(currentQuestion + 1);
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
         setTextInput(''); // Reset text input for next question
       } else {
         // Quiz completed
@@ -108,14 +108,14 @@ export default function QuizScreen() {
           preferred_language: newAnswers[7]
         });
 
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ 
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
             has_completed_quiz: true,
             preferred_name: newAnswers[5],
             location: newAnswers[6],
             preferred_language: newAnswers[7]
-          })
+        })
           .eq('id', user?.id);
 
         if (updateError) {
@@ -175,23 +175,23 @@ export default function QuizScreen() {
             </View>
           ) : (
             questions[currentQuestion].options?.map((option, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.optionButton,
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.optionButton,
                   answers[currentQuestion] === option && styles.selectedOption,
-                ]}
+              ]}
                 onPress={() => handleAnswer(option)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
+            >
+              <Text
+                style={[
+                  styles.optionText,
                     answers[currentQuestion] === option && styles.selectedOptionText,
-                  ]}
-                >
-                  {option}
-                </Text>
-              </TouchableOpacity>
+                ]}
+              >
+                {option}
+              </Text>
+            </TouchableOpacity>
             ))
           )}
         </View>

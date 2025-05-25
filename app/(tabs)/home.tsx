@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert } from 'react-native';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
-import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2 } from 'lucide-react-native';
+import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Card from '../../components/Card';
@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
+import { refreshPromptForTestGroup } from '../../lib/prompts';
 
 const { width } = Dimensions.get('window');
 
@@ -104,18 +105,18 @@ export default function Dashboard() {
   const [response, setResponse] = useState('');
   const [fadeAnim] = useState(new Animated.Value(0));
 
-  const fetchData = async () => {
+    const fetchData = async () => {
     if (!user) {
       console.log('No user available');
       return;
     }
 
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
       setError(null);
       
       console.log('Fetching data for user:', user.id);
-      
+        
       // First, ensure user exists in the database
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
@@ -183,15 +184,15 @@ export default function Dashboard() {
       }
       
       // Fetch group data with the prompt using a join
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
+        const { data: groupData, error: groupError } = await supabase
+          .from('groups')
         .select(`
           *,
           prompts!current_prompt_id(*)
         `)
         .eq('id', existingUser.current_group_id)
         .single();
-      
+        
       if (groupError) {
         console.error('Error fetching group:', groupError);
         return;
@@ -201,7 +202,7 @@ export default function Dashboard() {
         console.error('No group found for user');
         return;
       }
-      
+
       console.log('Group data:', groupData);
       setGroup(groupData);
       setCurrentPrompt(groupData.prompts);
@@ -232,7 +233,7 @@ export default function Dashboard() {
             .from('users')
             .update({ submitted: false })
             .in('id', usersToReset.map(u => u.id));
-
+        
           if (resetError) {
             console.error('Error resetting submission status:', resetError);
           } else {
@@ -248,25 +249,25 @@ export default function Dashboard() {
         console.log('Group members:', groupMembers);
         setGroup(prev => prev ? { ...prev, members: groupMembers } : null);
       }
-
+        
       // Fetch submissions for the current prompt
       if (groupData.current_prompt_id) {
         console.log('Fetching submissions for prompt:', groupData.current_prompt_id);
-        const { data: submissionsData, error: submissionsError } = await supabase
-          .from('submissions')
-          .select('*')
+          const { data: submissionsData, error: submissionsError } = await supabase
+            .from('submissions')
+            .select('*')
           .eq('prompt_id', groupData.current_prompt_id)
           .eq('group_id', groupData.id)
-          .order('created_at', { ascending: true });
-        
+            .order('created_at', { ascending: true });
+          
         if (submissionsError) {
           console.error('Error fetching submissions:', submissionsError);
           throw submissionsError;
         }
-        
+          
         console.log('Successfully fetched submissions:', submissionsData?.length || 0);
-        setSubmissions(submissionsData || []);
-      }
+          setSubmissions(submissionsData || []);
+        }
 
       // Update user's current_group_id if it's not set
       if (!existingUser.current_group_id && groupData) {
@@ -280,13 +281,13 @@ export default function Dashboard() {
           console.error('Error updating user current_group_id:', updateError);
         }
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
       setError('Failed to load data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
     
   useEffect(() => {
     fetchData();
@@ -302,7 +303,7 @@ export default function Dashboard() {
 
     return () => clearInterval(timer);
   }, [user]);
-
+  
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -396,6 +397,20 @@ export default function Dashboard() {
     }
   };
 
+  const handleRefreshPrompt = async () => {
+    try {
+      setLoading(true);
+      await refreshPromptForTestGroup();
+      await fetchData(); // Refresh the data to show new prompt
+      Alert.alert('Success', 'Prompt has been refreshed!');
+    } catch (error) {
+      console.error('Error refreshing prompt:', error);
+      Alert.alert('Error', 'Failed to refresh prompt. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -442,11 +457,11 @@ export default function Dashboard() {
         <Text style={styles.title}>Your Crew</Text>
         
         <View style={styles.headerRight}>
-          <View style={styles.streakContainer}>
-            <Award size={24} color={theme.colors.primary} />
-            <Text style={styles.streakText}>
+        <View style={styles.streakContainer}>
+          <Award size={24} color={theme.colors.primary} />
+          <Text style={styles.streakText}>
               {group?.streak_count ?? 0} day streak
-            </Text>
+          </Text>
           </View>
           
           <TouchableOpacity 
@@ -455,6 +470,15 @@ export default function Dashboard() {
           >
             <RefreshCw size={24} color={theme.colors.text.secondary} />
           </TouchableOpacity>
+
+          {group?.id === 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' && (
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={handleRefreshPrompt}
+            >
+              <RotateCw size={24} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          )}
           
           <TouchableOpacity 
             style={styles.signOutButton}
@@ -483,17 +507,17 @@ export default function Dashboard() {
                     <Text style={styles.memberName}>{member.email}</Text>
                     <Text style={styles.memberStatus}>
                       {member.submitted ? 'Submitted' : 'Not submitted'}
-                    </Text>
+                  </Text>
                   </View>
                   {member.submitted && (
                     <CheckCircle2 size={20} color={theme.colors.primary} />
                   )}
                 </View>
               ))}
-            </View>
-            <Text style={styles.membersStats}>
+          </View>
+          <Text style={styles.membersStats}>
               {group?.members?.filter(m => m.submitted).length || 0}/{group?.members?.length || 0} checked in today
-            </Text>
+          </Text>
           </View>
         </View>
         
@@ -505,16 +529,36 @@ export default function Dashboard() {
               <Text style={styles.timerText}>{timeLeft}</Text>
             </View>
           </Card>
-        </View>
+          </View>
           
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Prompt</Text>
           <Card style={styles.promptCard}>
-            <Text style={styles.promptText}>
-              {group?.current_prompt || currentPrompt?.question_text || "Loading prompt..."}
-            </Text>
-            {!group ? (
-              <View>
+            <View style={styles.promptHeader}>
+          <Text style={styles.promptText}>
+                {typeof group?.current_prompt === 'string' ? group.current_prompt : 
+                 currentPrompt?.content || "Loading prompt..."}
+              </Text>
+              {currentPrompt?.prompt_type && (
+                <View style={styles.promptTypeContainer}>
+                  {currentPrompt.prompt_type === 'audio' && <Mic size={20} color={theme.colors.primary} />}
+                  {currentPrompt.prompt_type === 'photo' && <Camera size={20} color={theme.colors.primary} />}
+                  {currentPrompt.prompt_type === 'text' && <Type size={20} color={theme.colors.primary} />}
+                  <Text style={styles.promptTypeText}>
+                    {currentPrompt.prompt_type.charAt(0).toUpperCase() + currentPrompt.prompt_type.slice(1)}
+          </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.promptActions}>
+          <TouchableOpacity 
+                style={[styles.promptButton, styles.refreshPromptButton]}
+                onPress={handleRefreshPrompt}
+              >
+                <RotateCw size={20} color="#FFFFFF" />
+                <Text style={styles.promptButtonText}>New Prompt</Text>
+              </TouchableOpacity>
+              {!group ? (
                 <TouchableOpacity 
                   style={[styles.promptButton, styles.joinButton]}
                   onPress={handleJoinGroup}
@@ -522,22 +566,19 @@ export default function Dashboard() {
                 >
                   <Text style={styles.promptButtonText}>
                     {isJoining ? 'Joining...' : 'Join Group'}
-                  </Text>
-                </TouchableOpacity>
-                {error && (
-                  <Text style={styles.errorText}>{error}</Text>
-                )}
-              </View>
+            </Text>
+          </TouchableOpacity>
             ) : (
               <TouchableOpacity 
                 style={styles.promptButton}
-                onPress={() => router.push('/(tabs)/prompt')}
+                  onPress={() => router.push('/(tabs)/prompt')}
               >
                 <Text style={styles.promptButtonText}>
                   {hasSubmitted ? 'View Responses' : 'Answer Prompt'}
                 </Text>
               </TouchableOpacity>
             )}
+            </View>
           </Card>
         </View>
       </ScrollView>
@@ -753,5 +794,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
     lineHeight: 24,
+  },
+  promptHeader: {
+    marginBottom: theme.spacing.md,
+  },
+  promptTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+  },
+  promptTypeText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.primary,
+  },
+  promptActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+  },
+  refreshPromptButton: {
+    backgroundColor: theme.colors.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
 });

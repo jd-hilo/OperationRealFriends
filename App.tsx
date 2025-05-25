@@ -5,27 +5,16 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-// Screens
-import EntryScreen from './src/screens/EntryScreen';
-import QuizScreen from './src/screens/QuizScreen';
-import QueueScreen from './src/screens/QueueScreen';
-import DashboardScreen from './src/screens/DashboardScreen';
-import PromptScreen from './src/screens/PromptScreen';
-import ChatScreen from './src/screens/ChatScreen';
-
-// Store
-import { useUserStore } from './src/store/userStore';
+import { registerBackgroundTask } from './lib/backgroundTasks';
 
 // Types
-import { RootStackParamList } from './src/types';
+import { RootStackParamList } from './types';
 
 SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const { userId, checkExistingUser } = useUserStore();
   const [appIsReady, setAppIsReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -39,7 +28,6 @@ export default function App() {
     async function prepare() {
       try {
         // Pre-load any data if needed
-        await checkExistingUser();
       } catch (e) {
         console.warn(e);
       } finally {
@@ -48,7 +36,11 @@ export default function App() {
     }
 
     prepare();
-  }, [checkExistingUser]);
+  }, []);
+
+  useEffect(() => {
+    registerBackgroundTask();
+  }, []);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady && fontsLoaded) {
@@ -71,19 +63,7 @@ export default function App() {
             contentStyle: { backgroundColor: '#FFFFFF' }
           }}
         >
-          {!userId ? (
-            <>
-              <Stack.Screen name="Entry" component={EntryScreen} />
-              <Stack.Screen name="Quiz" component={QuizScreen} />
-              <Stack.Screen name="Queue" component={QueueScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="Dashboard" component={DashboardScreen} />
-              <Stack.Screen name="Prompt" component={PromptScreen} />
-              <Stack.Screen name="Chat" component={ChatScreen} />
-            </>
-          )}
+          <Stack.Screen name="(tabs)" component={require('./app/(tabs)/_layout').default} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

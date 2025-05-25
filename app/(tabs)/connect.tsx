@@ -193,16 +193,16 @@ export default function ConnectScreen() {
   };
 
   const fetchMessages = async (groupId: string) => {
-    try {
+      try {
       setError(null);
       setLoading(true);
 
       // Fetch all messages for the group, ordered by creation time
-      const { data: messageData, error: messageError } = await supabase
-        .from('messages')
-        .select('*')
+        const { data: messageData, error: messageError } = await supabase
+          .from('messages')
+          .select('*')
         .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true });
 
       if (messageError) {
         setError('Failed to load messages.');
@@ -214,24 +214,24 @@ export default function ConnectScreen() {
       // Fetch user data for avatars/names
       const userIds = [...new Set((messageData || []).map(m => m.user_id))];
       if (userIds.length > 0) {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .in('id', userIds);
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .in('id', userIds);
 
         if (!userError && userData) {
-          const userMap = userData.reduce((acc, user) => {
-            acc[user.id] = user;
-            return acc;
+            const userMap = userData.reduce((acc, user) => {
+              acc[user.id] = user;
+              return acc;
           }, {});
-          setUsers(userMap);
+            setUsers(userMap);
+          }
         }
-      }
-    } finally {
-      setLoading(false);
+      } finally {
+        setLoading(false);
       setRefreshing(false);
-    }
-  };
+      }
+    };
 
   useEffect(() => {
     if (!user) return;
@@ -382,7 +382,7 @@ export default function ConnectScreen() {
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
-  }
+    }
 
   if (error) {
     return (
