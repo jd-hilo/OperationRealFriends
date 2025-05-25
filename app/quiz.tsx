@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthStore } from '../store/auth';
+import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 
 interface Question {
   id: number;
   text: string;
-  options: string[];
+  options?: string[];
+  type?: 'text';
+}
+
+interface QuizAnswers {
+  [key: number]: string;
 }
 
 export default function QuizScreen() {
-  const router = useRouter();
+  const { user } = useAuth();
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
+  const [answers, setAnswers] = useState<QuizAnswers>({});
+  const [error, setError] = useState('');
+  const [textInput, setTextInput] = useState('');
 
   const questions: Question[] = [
     {
@@ -68,52 +75,65 @@ export default function QuizScreen() {
         'Following past experiences',
       ],
     },
+    {
+      id: 6,
+      text: 'What is your preferred name?',
+      type: 'text',
+    },
+    {
+      id: 7,
+      text: 'Where are you located?',
+      type: 'text',
+    },
+    {
+      id: 8,
+      text: 'What is your preferred language?',
+      type: 'text',
+    },
   ];
 
-  const handleAnswer = (optionIndex: number) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = optionIndex;
-    setAnswers(newAnswers);
-
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    }
-  };
-
-  const handleSubmit = async () => {
+  const handleAnswer = async (answer: string) => {
     try {
-      const { user, setQuizCompleted } = useAuthStore.getState();
-      if (!user) throw new Error('No user found');
+      const newAnswers = { ...answers, [currentQuestion]: answer };
+      setAnswers(newAnswers);
 
-      // Convert answers array to a JSON object with question IDs
-      const quizAnswers = answers.reduce((acc, answer, index) => {
-        acc[`question${index + 1}`] = answer;
-        return acc;
-      }, {} as Record<string, number>);
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion(currentQuestion + 1);
+        setTextInput(''); // Reset text input for next question
+      } else {
+        // Quiz completed
+        console.log('Saving answers:', {
+          preferred_name: newAnswers[5],
+          location: newAnswers[6],
+          preferred_language: newAnswers[7]
+        });
 
-      // Update user record in Supabase
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          quiz_answers: quizAnswers,
-          has_completed_quiz: true
-        })
-        .eq('id', user.id);
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            has_completed_quiz: true,
+            preferred_name: newAnswers[5],
+            location: newAnswers[6],
+            preferred_language: newAnswers[7]
+          })
+          .eq('id', user?.id);
 
-      if (updateError) throw updateError;
-
-      // Update local state
-      await setQuizCompleted();
-      
-      // Navigate back to home
-      router.push('/(tabs)/home');
-    } catch (error) {
-      console.error('Error completing quiz:', error);
+        if (updateError) {
+          console.error('Error updating user:', updateError);
+          throw updateError;
+        }
+        router.replace('/(tabs)/home');
+      }
+    } catch (err: any) {
+      console.error('Error in handleAnswer:', err);
+      setError(err.message);
     }
   };
 
-  const handleGoHome = () => {
-    router.push('/(tabs)/home');
+  const handleTextSubmit = () => {
+    if (textInput.trim()) {
+      handleAnswer(textInput.trim());
+    }
   };
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
@@ -125,14 +145,6 @@ export default function QuizScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        <TouchableOpacity
-          style={styles.homeButton}
-          onPress={handleGoHome}
-        >
-          <MaterialCommunityIcons name="home" size={24} color="#007AFF" />
-          <Text style={styles.homeButtonText}>Go to Home</Text>
-        </TouchableOpacity>
-
         <Text style={styles.questionNumber}>
           Question {currentQuestion + 1} of {questions.length}
         </Text>
@@ -141,39 +153,48 @@ export default function QuizScreen() {
         </Text>
 
         <View style={styles.optionsContainer}>
-          {questions[currentQuestion].options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.optionButton,
-                answers[currentQuestion] === index && styles.selectedOption,
-              ]}
-              onPress={() => handleAnswer(index)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  answers[currentQuestion] === index && styles.selectedOptionText,
-                ]}
+          {questions[currentQuestion].type === 'text' ? (
+            <View style={styles.textInputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Type your answer here..."
+                value={textInput}
+                onChangeText={setTextInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
+                onPress={handleTextSubmit}
+                disabled={!textInput.trim()}
               >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text style={[styles.submitButtonText, !textInput.trim() && styles.submitButtonTextDisabled]}>
+                  Submit
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            questions[currentQuestion].options?.map((option, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.optionButton,
+                  answers[currentQuestion] === option && styles.selectedOption,
+                ]}
+                onPress={() => handleAnswer(option)}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    answers[currentQuestion] === option && styles.selectedOptionText,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
-
-        {currentQuestion === questions.length - 1 && (
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              answers[currentQuestion] === undefined && styles.submitButtonDisabled
-            ]}
-            onPress={handleSubmit}
-            disabled={answers[currentQuestion] === undefined}
-          >
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -231,31 +252,34 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '500',
   },
+  textInputContainer: {
+    marginTop: 10,
+    gap: 15,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#fff',
+  },
   submitButton: {
     backgroundColor: '#007AFF',
-    padding: 16,
+    padding: 15,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
-  homeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    marginBottom: 20,
-  },
-  homeButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    marginLeft: 8,
-    fontWeight: '500',
+  submitButtonTextDisabled: {
+    color: '#666',
   },
 });

@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAuthStore } from '../../store/auth';
 import { router } from 'expo-router';
+import { useAuth } from '../../lib/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const signIn = useAuthStore((state) => state.signIn);
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
     try {
       setError('');
       await signIn(email, password);
-      // Router will automatically redirect based on quiz completion and queue status
+      // Router will automatically redirect based on auth state
     } catch (err: any) {
       setError(err.message);
     }

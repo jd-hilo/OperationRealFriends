@@ -13,7 +13,11 @@
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "noEmit": true,
-    "target": "esnext"
+    "target": "esnext",
+    "baseUrl": ".",
+    "paths": {
+      "*": ["*"]
+    }
   },
   "include": [
     "**/*.ts",

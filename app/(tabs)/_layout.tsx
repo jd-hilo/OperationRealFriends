@@ -4,7 +4,7 @@ import { LayoutAnimation, Platform, UIManager, View, StyleSheet } from 'react-na
 import { Home, MessageCircle, PenLine } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuthStore } from '../../store/auth';
+import { useAuth } from '../../lib/auth';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android') {
@@ -14,7 +14,7 @@ if (Platform.OS === 'android') {
 }
 
 export default function TabLayout() {
-  const { activeGroup } = useAuthStore();
+  const { user } = useAuth();
 
   // Use LayoutAnimation when switching tabs
   const handleTabPress = () => {

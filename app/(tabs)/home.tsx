@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert } from 'react-native';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
-import { Smile, Clock, PenLine, Award, LogOut, RefreshCw } from 'lucide-react-native';
+import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Card from '../../components/Card';
 import MemberIcon from '../../components/MemberIcon';
-import { useUserStore } from '../../store/userStore';
-import { useAuthStore } from '../../store/auth';
 import { supabase } from '../../lib/supabase';
 import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '../../lib/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -92,8 +91,7 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
 };
 
 export default function Dashboard() {
-  const { userId, groupId, refreshGroupId, initialize } = useUserStore();
-  const { signOut, hasCompletedQuiz, user: authUser } = useAuthStore();
+  const { user, signOut } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<Prompt | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -101,94 +99,164 @@ export default function Dashboard() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [hasCompletedQuiz, setHasCompletedQuiz] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [response, setResponse] = useState('');
+  const [fadeAnim] = useState(new Animated.Value(0));
 
-  useEffect(() => {
-    initialize();
-  }, [authUser?.id]);
-
-    const fetchData = async () => {
-    if (!userId) {
-      console.log('No userId available');
+  const fetchData = async () => {
+    if (!user) {
+      console.log('No user available');
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
       
-      // Debug: Query the group directly
-      const { data: debugGroup, error: debugError } = await supabase
-        .from('groups')
+      console.log('Fetching data for user:', user.id);
+      
+      // First, ensure user exists in the database
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
         .select('*')
-        .eq('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
-      
-      console.log('Debug - Direct group query result:', debugGroup);
-      if (debugError) {
-        console.error('Debug - Direct group query error:', debugError);
+        .eq('id', user.id)
+        .single();
+
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
+        console.error('Error checking user:', userCheckError);
+        throw userCheckError;
       }
+
+      console.log('Existing user data:', existingUser);
+
+      // If user doesn't exist, create them
+      if (!existingUser) {
+        console.log('Creating new user in database');
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: user.id,
+              email: user.email,
+              created_at: new Date().toISOString(),
+              has_completed_quiz: false
+            }
+          ])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating user:', createError);
+          throw createError;
+        }
+
+        setHasCompletedQuiz(false);
+        setGroup(null);
+        setCurrentPrompt(null);
+        setSubmissions([]);
+        return;
+      }
+
+      // Now fetch the user's quiz status
+      setHasCompletedQuiz(existingUser.has_completed_quiz || false);
       
-      // Refresh group ID first
-      const currentGroupId = await refreshGroupId();
-      console.log('Current groupId after refresh:', currentGroupId);
-      
-      if (!currentGroupId) {
-        console.log('No groupId available after refresh');
+      // If quiz is not completed, don't fetch group data
+      if (!existingUser.has_completed_quiz) {
+        console.log('Quiz not completed, skipping group fetch');
         setGroup(null);
         setCurrentPrompt(null);
         setSubmissions([]);
         return;
       }
       
-      // Fetch group data
-      console.log('Attempting to fetch group with ID:', currentGroupId);
+      // Debug: Check if user has a current_group_id
+      console.log('User current_group_id:', existingUser.current_group_id);
+      
+      // If user has no group, show join group screen
+      if (!existingUser.current_group_id) {
+        console.log('User has no group assigned');
+        setGroup(null);
+        setCurrentPrompt(null);
+        setSubmissions([]);
+        return;
+      }
+      
+      // Fetch group data with the prompt using a join
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .select('*, prompts!current_prompt_id(*)')
-        .eq('id', currentGroupId)
+        .select(`
+          *,
+          prompts!current_prompt_id(*)
+        `)
+        .eq('id', existingUser.current_group_id)
         .single();
-        
+      
       if (groupError) {
         console.error('Error fetching group:', groupError);
-        console.log('Group ID that failed:', currentGroupId);
-        throw groupError;
+        return;
       }
       
       if (!groupData) {
-        console.log('No group data returned for ID:', currentGroupId);
-        setGroup(null);
-        setCurrentPrompt(null);
-        setSubmissions([]);
+        console.error('No group found for user');
         return;
       }
-
-      console.log('Successfully fetched group data:', groupData);
+      
+      console.log('Group data:', groupData);
       setGroup(groupData);
-        
-      // Fetch the prompt associated with the group
-      if (!groupData.current_prompt_id) {
-        console.log('No current_prompt_id in group data');
-        return;
+      setCurrentPrompt(groupData.prompts);
+
+      // Fetch all users in this group
+      const { data: groupMembers, error: membersError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('current_group_id', groupData.id);
+
+      if (membersError) {
+        console.error('Error fetching group members:', membersError);
+      } else {
+        // Check if we need to reset submission status for any users
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(0, 0, 0, 0);
+
+        const usersToReset = groupMembers?.filter(member => {
+          if (!member.last_submission_date) return false;
+          const lastSubmission = new Date(member.last_submission_date);
+          return lastSubmission < midnight;
+        });
+
+        if (usersToReset && usersToReset.length > 0) {
+          console.log('Resetting submission status for users:', usersToReset.map(u => u.id));
+          const { error: resetError } = await supabase
+            .from('users')
+            .update({ submitted: false })
+            .in('id', usersToReset.map(u => u.id));
+
+          if (resetError) {
+            console.error('Error resetting submission status:', resetError);
+          } else {
+            // Update the local state with reset users
+            groupMembers.forEach(member => {
+              if (usersToReset.some(u => u.id === member.id)) {
+                member.submitted = false;
+              }
+            });
+          }
+        }
+
+        console.log('Group members:', groupMembers);
+        setGroup(prev => prev ? { ...prev, members: groupMembers } : null);
       }
 
-      console.log('Fetching prompt with ID:', groupData.current_prompt_id);
-      const { data: promptData, error: promptError } = await supabase
-        .from('prompts')
-        .select('*')
-        .eq('id', groupData.current_prompt_id)
-        .single();
-        
-      if (promptError) {
-        console.error('Error fetching prompt:', promptError);
-        throw promptError;
-      }
-        
-      // Fetch submissions for today's prompt from group members
-      if (promptData) {
-        console.log('Fetching submissions for prompt:', promptData.id);
+      // Fetch submissions for the current prompt
+      if (groupData.current_prompt_id) {
+        console.log('Fetching submissions for prompt:', groupData.current_prompt_id);
         const { data: submissionsData, error: submissionsError } = await supabase
           .from('submissions')
           .select('*')
-          .eq('prompt_id', promptData.id)
-          .eq('group_id', currentGroupId)
+          .eq('prompt_id', groupData.current_prompt_id)
+          .eq('group_id', groupData.id)
           .order('created_at', { ascending: true });
         
         if (submissionsError) {
@@ -197,11 +265,24 @@ export default function Dashboard() {
         }
         
         console.log('Successfully fetched submissions:', submissionsData?.length || 0);
-        setCurrentPrompt(promptData);
         setSubmissions(submissionsData || []);
+      }
+
+      // Update user's current_group_id if it's not set
+      if (!existingUser.current_group_id && groupData) {
+        console.log('Updating user with current_group_id:', groupData.id);
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ current_group_id: groupData.id })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.error('Error updating user current_group_id:', updateError);
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError('Failed to load data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -220,16 +301,12 @@ export default function Dashboard() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [userId]);
+  }, [user]);
 
-  const hasSubmitted = submissions.some(s => s.user_id === userId);
-  const memberCount = group?.member_ids?.length || 0;
-  const submissionCount = submissions.length;
-  
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.replace('/entry');
+      router.replace('/(auth)/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -239,19 +316,27 @@ export default function Dashboard() {
     try {
       setError(null);
       setIsJoining(true);
-      if (!authUser?.id) {
+      
+      if (!user?.id) {
         setError('Please sign in to join a group');
         return;
       }
-      if (!userId) {
-        setError('Please wait while we load your account...');
-        return;
-      }
-      console.log('Joining group with user ID:', userId);
-      await useUserStore.getState().assignToGroup();
-      console.log('Group assignment completed, refreshing data...');
-      await fetchData();
-      console.log('Data refresh completed');
+
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert([
+          {
+            id: user.id,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single();
+
+      if (groupError) throw groupError;
+      
+      setGroup(groupData);
+      router.push('/(tabs)/prompt');
     } catch (err) {
       console.error('Error joining group:', err);
       setError(err instanceof Error ? err.message : 'Failed to join group. Please try again.');
@@ -260,17 +345,108 @@ export default function Dashboard() {
     }
   };
 
+  const handleSubmit = async () => {
+    if (!response.trim() || !user || !group) {
+      Alert.alert('Error', 'Please enter a response');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      console.log('Submitting response for group:', group.id);
+      const { error } = await supabase
+        .from('submissions')
+        .insert([
+          {
+            user_id: user.id,
+            group_id: group.id,
+            prompt_id: currentPrompt?.id,
+            response_text: response.trim(),
+            created_at: new Date().toISOString()
+          }
+        ]);
+      
+      if (error) {
+        console.error('Error submitting response:', error);
+        throw error;
+      }
+
+      // Update user's submission status
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          submitted: true,
+          last_submission_date: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating user submission status:', updateError);
+      }
+      
+      console.log('Response submitted successfully');
+      setHasSubmitted(true);
+      
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      Alert.alert('Error', 'Failed to submit your response. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (!hasCompletedQuiz) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.quizContainer}>
+          <Animated.Text 
+            style={[styles.quizTitle, { opacity: fadeAnim }]}
+            onLayout={() => {
+              Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+              }).start();
+            }}
+          >
+            Are you ready to get started?
+          </Animated.Text>
+          <View style={styles.quizContent}>
+            <Text style={styles.quizDescription}>
+              Take a quick quiz to help us match you with the perfect group.
+            </Text>
+            <TouchableOpacity 
+              style={[styles.promptButton, styles.quizButton]} 
+              onPress={() => router.push('/quiz')}
+            >
+              <Text style={styles.promptButtonText}>Start Quiz</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Crew</Text>
         
         <View style={styles.headerRight}>
-        <View style={styles.streakContainer}>
-          <Award size={24} color={theme.colors.primary} />
-          <Text style={styles.streakText}>
+          <View style={styles.streakContainer}>
+            <Award size={24} color={theme.colors.primary} />
+            <Text style={styles.streakText}>
               {group?.streak_count ?? 0} day streak
-          </Text>
+            </Text>
           </View>
           
           <TouchableOpacity 
@@ -296,38 +472,29 @@ export default function Dashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Members</Text>
           <View style={styles.membersContainer}>
-            {group?.member_ids?.map((memberId, i) => {
-              console.log('Rendering member:', memberId);
-              return (
-                <View key={memberId} style={styles.memberItem}>
-              <MemberAvatar 
-                    user={{
-                      id: memberId,
-                      email: `member${i + 1}@example.com`,
-                      created_at: new Date().toISOString(),
-                      quiz_answers: {
-                        question1: 0,
-                        question2: 0,
-                        question3: 0,
-                        question4: 0,
-                        question5: 0,
-                        question6: 0
-                      },
-                      current_group_id: groupId
-                    }}
-                    submitted={submissions.some(s => s.user_id === memberId)}
-                index={i}
-              />
-                  <Text style={styles.memberName}>
-                    Member {i + 1}
-                  </Text>
+            <View style={styles.membersList}>
+              {group?.members?.map((member) => (
+                <View key={member.id} style={styles.memberItem}>
+                  <Image
+                    source={{ uri: member.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
+                    style={styles.memberAvatar}
+                  />
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{member.email}</Text>
+                    <Text style={styles.memberStatus}>
+                      {member.submitted ? 'Submitted' : 'Not submitted'}
+                    </Text>
+                  </View>
+                  {member.submitted && (
+                    <CheckCircle2 size={20} color={theme.colors.primary} />
+                  )}
                 </View>
-              );
-            })}
+              ))}
+            </View>
+            <Text style={styles.membersStats}>
+              {group?.members?.filter(m => m.submitted).length || 0}/{group?.members?.length || 0} checked in today
+            </Text>
           </View>
-          <Text style={styles.membersStats}>
-            {submissions.length}/{group?.member_ids?.length ?? 0} checked in today
-          </Text>
         </View>
         
         <View style={styles.section}>
@@ -338,22 +505,15 @@ export default function Dashboard() {
               <Text style={styles.timerText}>{timeLeft}</Text>
             </View>
           </Card>
-          </View>
+        </View>
           
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Prompt</Text>
           <Card style={styles.promptCard}>
-          <Text style={styles.promptText}>
+            <Text style={styles.promptText}>
               {group?.current_prompt || currentPrompt?.question_text || "Loading prompt..."}
-          </Text>
-            {!hasCompletedQuiz ? (
-          <TouchableOpacity 
-                style={[styles.promptButton, styles.quizButton]}
-                onPress={() => router.push('/quiz')}
-              >
-                <Text style={styles.promptButtonText}>Take Quiz First</Text>
-              </TouchableOpacity>
-            ) : !groupId ? (
+            </Text>
+            {!group ? (
               <View>
                 <TouchableOpacity 
                   style={[styles.promptButton, styles.joinButton]}
@@ -362,8 +522,8 @@ export default function Dashboard() {
                 >
                   <Text style={styles.promptButtonText}>
                     {isJoining ? 'Joining...' : 'Join Group'}
-            </Text>
-          </TouchableOpacity>
+                  </Text>
+                </TouchableOpacity>
                 {error && (
                   <Text style={styles.errorText}>{error}</Text>
                 )}
@@ -371,7 +531,7 @@ export default function Dashboard() {
             ) : (
               <TouchableOpacity 
                 style={styles.promptButton}
-                onPress={() => router.push('/prompt')}
+                onPress={() => router.push('/(tabs)/prompt')}
               >
                 <Text style={styles.promptButtonText}>
                   {hasSubmitted ? 'View Responses' : 'Answer Prompt'}
@@ -545,5 +705,53 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.sm,
+  },
+  membersList: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  memberAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  memberInfo: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  memberStatus: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+  },
+  quizContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  quizContent: {
+    alignItems: 'center',
+    gap: theme.spacing.lg,
+  },
+  quizTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: theme.typography.fontSize.xl,
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  quizDescription: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    maxWidth: 300,
+    lineHeight: 24,
   },
 });
