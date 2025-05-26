@@ -262,7 +262,7 @@ export default function PromptScreen() {
   }, [user]);
 
   const handleSubmit = async () => {
-    if (!response.trim() || !user || !group) {
+    if (!response.trim() || !user || !group || !prompt) {
       Alert.alert('Error', 'Please enter a response');
       return;
     }
@@ -270,18 +270,38 @@ export default function PromptScreen() {
     try {
       setLoading(true);
       
+      // Check if user has already submitted to this prompt
+      const { data: existingSubmission, error: checkError } = await supabase
+        .from('submissions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('prompt_id', prompt.id)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error checking existing submission:', checkError);
+        throw checkError;
+      }
+      
+      if (existingSubmission) {
+        Alert.alert('Already Submitted', 'You have already submitted a response to this prompt.');
+        return;
+      }
+      
       console.log('Submitting response for group:', group.id);
-      const { error } = await supabase
+      const { data: newSubmission, error } = await supabase
         .from('submissions')
         .insert([
           {
             user_id: user.id,
             group_id: group.id,
-            prompt_id: prompt?.id,
+            prompt_id: prompt.id,
             response_text: response.trim(),
             created_at: new Date().toISOString()
           }
-        ]);
+        ])
+        .select()
+        .single();
       
       if (error) {
         console.error('Error submitting response:', error);
@@ -290,6 +310,26 @@ export default function PromptScreen() {
       
       console.log('Response submitted successfully');
       setHasSubmitted(true);
+
+      // Add the new submission to the submissions list
+      if (newSubmission) {
+        setSubmissions(prev => [...prev, newSubmission]);
+        
+        // Add the current user to the users map if not already present
+        setUsers(prev => ({
+          ...prev,
+          [user.id]: {
+            id: user.id,
+            email: user.email || '',
+            created_at: new Date().toISOString(),
+            has_completed_quiz: true,
+            current_group_id: group.id,
+            submitted: true,
+            last_submission_date: new Date().toISOString(),
+            streak_count: 0 // Add default streak count
+          }
+        }));
+      }
       
     } catch (error) {
       console.error('Error submitting response:', error);

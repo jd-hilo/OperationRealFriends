@@ -2,6 +2,10 @@
 DROP POLICY IF EXISTS "Members can see group submissions" ON submissions;
 DROP POLICY IF EXISTS "Users can create submissions" ON submissions;
 
+-- Add unique constraint to prevent multiple submissions per user per prompt
+ALTER TABLE submissions
+ADD CONSTRAINT unique_user_prompt_submission UNIQUE (user_id, prompt_id);
+
 -- Create new policies for submissions
 CREATE POLICY "Users can see submissions from their current group"
 ON submissions FOR SELECT

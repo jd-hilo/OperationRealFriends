@@ -20,7 +20,7 @@ export interface User {
   preferred_name?: string;
 }
 
-export interface QuizAnswer {
+export interface QuizAnswers {
   id: string;
   user_id: string;
   question1: number;
@@ -29,6 +29,10 @@ export interface QuizAnswer {
   question4: number;
   question5: number;
   question6: number;
+  question7: number;
+  question8: number;
+  question9: number;
+  question10: number;
   created_at: string;
 }
 
@@ -36,9 +40,10 @@ export interface Group {
   id: string;
   name: string;
   created_at: string;
-  current_prompt_id?: string;
-  next_prompt_due?: string;
-  streak_count?: number;
+  current_prompt_id: string | null;
+  prompt_due_date: string | null;
+  next_prompt_due: string | null;
+  streak_count: number;
   is_active: boolean;
   members?: User[];
   current_prompt?: Prompt;

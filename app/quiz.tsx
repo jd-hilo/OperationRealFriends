@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -27,66 +27,116 @@ export default function QuizScreen() {
   const questions: Question[] = [
     {
       id: 1,
-      text: 'How do you prefer to spend your free time?',
+      text: 'I see myself as someone who is outgoing, sociable.',
       options: [
-        'Reading or watching movies alone',
-        'Hanging out with friends',
-        'Trying new activities',
-        'Relaxing at home',
+        'Very like me',
+        'Somewhat like me',
+        'A little like me',
+        'Not like me',
       ],
     },
     {
       id: 2,
-      text: 'What energizes you the most?',
+      text: 'I tend to be compassionate and cooperative.',
       options: [
-        'Deep conversations',
-        'Physical activities',
-        'Creative projects',
-        'Learning new things',
+        'Very like me',
+        'Somewhat like me',
+        'A little like me',
+        'Not like me',
       ],
     },
     {
       id: 3,
-      text: 'How do you handle stress?',
+      text: 'I am organized and pay attention to details.',
       options: [
-        'Talk it out with others',
-        'Exercise or physical activity',
-        'Meditation or alone time',
-        'Distract myself with hobbies',
+        'Very like me',
+        'Somewhat like me',
+        'A little like me',
+        'Not like me',
       ],
     },
     {
       id: 4,
-      text: 'What type of social situations do you enjoy?',
+      text: 'I remain calm under pressure.',
       options: [
-        'Small, intimate gatherings',
-        'Large parties',
-        'One-on-one conversations',
-        'Group activities',
+        'Very like me',
+        'Somewhat like me',
+        'A little like me',
+        'Not like me',
       ],
     },
     {
       id: 5,
-      text: 'How do you make decisions?',
+      text: 'I enjoy trying new things and ideas.',
       options: [
-        'Based on feelings and intuition',
-        'After careful analysis',
-        'By discussing with others',
-        'Following past experiences',
+        'Very like me',
+        'Somewhat like me',
+        'A little like me',
+        'Not like me',
       ],
     },
     {
       id: 6,
+      text: 'If you had a free Saturday, what sounds best?',
+      options: [
+        'A laid‑back movie or game night',
+        'A live concert or gallery opening',
+        'A hike or sports game',
+        'Coding, reading or a podcast binge',
+      ],
+    },
+    {
+      id: 7,
+      text: 'Your ideal trip is…',
+      options: [
+        'Backpacking to meet locals',
+        'Organized group tour',
+        'Beach resort escape',
+        'City‑hopping food crawl',
+      ],
+    },
+    {
+      id: 8,
+      text: 'How do you prefer to express yourself?',
+      options: [
+        'Writing or blogging',
+        'Playing or listening to music',
+        'Painting, crafting or design',
+        'Cooking or mixology',
+      ],
+    },
+    {
+      id: 9,
+      text: 'Your go‑to spot with new friends is…',
+      options: [
+        'A cozy cafe',
+        'A lively bar or club',
+        'A park or sports field',
+        'A coworking space or makerspace',
+      ],
+    },
+    {
+      id: 10,
+      text: 'I learn best by…',
+      options: [
+        'Watching videos or live demos',
+        'Reading articles or books',
+        'Hands‑on practice',
+        'Group discussion or classes',
+      ],
+    },
+    {
+      id: 11,
       text: 'What is your preferred name?',
       type: 'text',
     },
     {
-      id: 7,
+      id: 12,
       text: 'Where are you located?',
       type: 'text',
     },
     {
-      id: 8,
+      id: 13,
       text: 'What is your preferred language?',
       type: 'text',
     },
@@ -95,33 +145,73 @@ export default function QuizScreen() {
   const handleAnswer = async (answer: string) => {
     try {
       const newAnswers = { ...answers, [currentQuestion]: answer };
-    setAnswers(newAnswers);
+      setAnswers(newAnswers);
 
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion(currentQuestion + 1);
         setTextInput(''); // Reset text input for next question
       } else {
         // Quiz completed
         console.log('Saving answers:', {
-          preferred_name: newAnswers[5],
-          location: newAnswers[6],
-          preferred_language: newAnswers[7]
+          quiz_answers: {
+            question1: newAnswers[0],
+            question2: newAnswers[1],
+            question3: newAnswers[2],
+            question4: newAnswers[3],
+            question5: newAnswers[4],
+            question6: newAnswers[5],
+            question7: newAnswers[6],
+            question8: newAnswers[7],
+            question9: newAnswers[8],
+            question10: newAnswers[9]
+          },
+          user_profile: {
+            preferred_name: newAnswers[10],
+            location: newAnswers[11],
+            preferred_language: newAnswers[12]
+          }
         });
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-            has_completed_quiz: true,
-            preferred_name: newAnswers[5],
-            location: newAnswers[6],
-            preferred_language: newAnswers[7]
-        })
+        // First save the quiz answers
+        const { error: quizError } = await supabase
+          .from('users')
+          .update({
+            quiz_answers: {
+              question1: newAnswers[0],
+              question2: newAnswers[1],
+              question3: newAnswers[2],
+              question4: newAnswers[3],
+              question5: newAnswers[4],
+              question6: newAnswers[5],
+              question7: newAnswers[6],
+              question8: newAnswers[7],
+              question9: newAnswers[8],
+              question10: newAnswers[9]
+            }
+          })
           .eq('id', user?.id);
 
-        if (updateError) {
-          console.error('Error updating user:', updateError);
-          throw updateError;
+        if (quizError) {
+          console.error('Error saving quiz answers:', quizError);
+          throw quizError;
         }
+
+        // Then save the user profile data
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({
+            has_completed_quiz: true,
+            preferred_name: newAnswers[10],
+            location: newAnswers[11],
+            preferred_language: newAnswers[12]
+          })
+          .eq('id', user?.id);
+
+        if (profileError) {
+          console.error('Error updating user profile:', profileError);
+          throw profileError;
+        }
+
         router.replace('/(tabs)/home');
       }
     } catch (err: any) {
@@ -140,6 +230,13 @@ export default function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          headerBackVisible: false,
+          title: 'Personality Quiz'
+        }} 
+      />
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { width: `${progress}%` }]} />
       </View>

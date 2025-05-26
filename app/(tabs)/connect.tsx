@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
-import { Message, User, Prompt, Submission } from '../../types';
+import { Message, User } from '../../types';
 import Card from '../../components/Card';
 import { useAuth } from '../../lib/auth';
 
@@ -47,44 +47,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser 
   );
 };
 
-interface PromptMessageProps {
-  prompt: Prompt;
-  submissions: Submission[];
-  users: Record<string, User>;
-  currentUserId: string;
-}
-
-const PromptMessage: React.FC<PromptMessageProps> = ({ prompt, submissions, users, currentUserId }) => {
-  return (
-    <View style={styles.promptContainer}>
-      {submissions.map((submission) => {
-        const user = users[submission.user_id];
-        return (
-          <View key={submission.id} style={styles.postCard}>
-            <View style={styles.postHeader}>
-              <Image
-                source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
-                style={styles.postAvatar}
-              />
-              <View style={styles.postUserInfo}>
-                <Text style={styles.postUserName}>{user?.email || 'Anonymous'}</Text>
-                <Text style={styles.postTime}>{formatDistanceToNow(new Date(submission.created_at), { addSuffix: true })}</Text>
-              </View>
-            </View>
-            <Text style={styles.postResponse}>{submission.response_text}</Text>
-            <View style={styles.postActions}>
-              <MaterialCommunityIcons name="heart-outline" size={20} color="#888" />
-              <Text style={styles.postActionText}>24</Text>
-              <MaterialCommunityIcons name="comment-outline" size={20} color="#888" style={{ marginLeft: 16 }} />
-              <Text style={styles.postActionText}>8</Text>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
 export default function ConnectScreen() {
   const { user } = useAuth();
   const [message, setMessage] = useState('');
@@ -93,8 +55,6 @@ export default function ConnectScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [prompt, setPrompt] = useState<Prompt | null>(null);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -122,30 +82,7 @@ export default function ConnectScreen() {
           return;
         }
 
-        // Fetch group data
-        const { data: groupData, error: groupError } = await supabase
-          .from('groups')
-          .select('*, prompts!current_prompt_id(*)')
-          .eq('id', userData.current_group_id)
-          .single();
-        
-        if (groupError) {
-          console.error('Error fetching group:', groupError);
-          setError('Failed to load chat. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        if (!groupData) {
-          setError('No group found. Please join a group first.');
-          setLoading(false);
-          return;
-        }
-
-        await Promise.all([
-          fetchMessages(groupData.id),
-          fetchPromptAndSubmissions(groupData.id)
-        ]);
+        await fetchMessages(userData.current_group_id);
       } catch (error) {
         console.error('Error in setup:', error);
         setError('Failed to initialize chat. Please try again.');
@@ -156,53 +93,17 @@ export default function ConnectScreen() {
     setup();
   }, [user]);
 
-  const fetchPromptAndSubmissions = async (groupId: string) => {
-    try {
-      // Fetch group data with the prompt
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .select('*, prompts!current_prompt_id(*)')
-        .eq('id', groupId)
-        .single();
-      
-      if (groupError) {
-        console.error('Error fetching group:', groupError);
-        return;
-      }
-      
-      if (groupData?.prompts) {
-        setPrompt(groupData.prompts);
-      }
-      
-      // Fetch submissions
-      const { data: submissionData, error: submissionError } = await supabase
-        .from('submissions')
-        .select('*')
-        .eq('group_id', groupId)
-        .eq('prompt_id', groupData?.current_prompt_id || prompt?.id)
-        .order('created_at', { ascending: true });
-      
-      if (!submissionError) {
-        setSubmissions(submissionData || []);
-      } else {
-        console.error('Error fetching submissions:', submissionError);
-      }
-    } catch (error) {
-      console.error('Error fetching prompt data:', error);
-    }
-  };
-
   const fetchMessages = async (groupId: string) => {
-      try {
+    try {
       setError(null);
       setLoading(true);
 
       // Fetch all messages for the group, ordered by creation time
-        const { data: messageData, error: messageError } = await supabase
-          .from('messages')
-          .select('*')
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .select('*')
         .eq('group_id', groupId)
-          .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true });
 
       if (messageError) {
         setError('Failed to load messages.');
@@ -214,24 +115,24 @@ export default function ConnectScreen() {
       // Fetch user data for avatars/names
       const userIds = [...new Set((messageData || []).map(m => m.user_id))];
       if (userIds.length > 0) {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .in('id', userIds);
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', userIds);
 
         if (!userError && userData) {
-            const userMap = userData.reduce((acc, user) => {
-              acc[user.id] = user;
-              return acc;
+          const userMap = userData.reduce((acc, user) => {
+            acc[user.id] = user;
+            return acc;
           }, {});
-            setUsers(userMap);
-          }
+          setUsers(userMap);
         }
-      } finally {
-        setLoading(false);
-      setRefreshing(false);
       }
-    };
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -271,48 +172,6 @@ export default function ConnectScreen() {
           setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
           }, 100);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [user]);
-
-  // Add subscription for submissions
-  useEffect(() => {
-    if (!user) return;
-
-    const subscription = supabase
-      .channel('submissions')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'submissions',
-          filter: `group_id=eq.${user.id}`
-        },
-        async (payload) => {
-          const newSubmission = payload.new as Submission;
-          setSubmissions(prev => [...prev, newSubmission]);
-
-          // Fetch user data if not already cached
-          if (!users[newSubmission.user_id]) {
-            const { data: userData } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', newSubmission.user_id)
-              .single();
-
-            if (userData) {
-              setUsers(prev => ({
-                ...prev,
-                [userData.id]: userData
-              }));
-            }
-          }
         }
       )
       .subscribe();
@@ -382,7 +241,7 @@ export default function ConnectScreen() {
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
-    }
+  }
 
   if (error) {
     return (
@@ -413,15 +272,6 @@ export default function ConnectScreen() {
           />
         }
       >
-        {prompt && (
-          <PromptMessage
-            prompt={prompt}
-            submissions={submissions}
-            users={users}
-            currentUserId={user?.id || ''}
-          />
-        )}
-        
         {messages.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons
@@ -597,59 +447,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.secondary,
     marginTop: theme.spacing.xs,
-  },
-  promptContainer: {
-    marginBottom: theme.spacing.lg,
-  },
-  postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  postAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  postUserInfo: {
-    flexDirection: 'column',
-  },
-  postUserName: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: '600',
-    color: theme.colors.text.primary,
-  },
-  postTime: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
-  },
-  postResponse: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
-    lineHeight: 22,
-  },
-  postActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  postActionText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
-    marginLeft: 4,
-  },
+  }
 }); 

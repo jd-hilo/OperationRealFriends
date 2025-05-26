@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
 import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -104,15 +104,74 @@ export default function Dashboard() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [response, setResponse] = useState('');
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [promptDueDate, setPromptDueDate] = useState<Date | null>(null);
+  const hasRefreshedRef = useRef(false);
 
-    const fetchData = async () => {
+  const checkGroupStatus = async (groupData: Group) => {
+    if (!groupData.current_prompt_id || !groupData.members) return;
+
+    const now = new Date();
+    const dueDate = new Date(groupData.next_prompt_due || '');
+    
+    console.log('Checking group status:');
+    console.log('Current time:', now.toISOString());
+    console.log('Due date:', dueDate.toISOString());
+    console.log('Is time up?', now > dueDate);
+    
+    // If time is up and not enough members submitted
+    if (now > dueDate) {
+      const submittedCount = groupData.members.filter(m => m.submitted).length;
+      console.log('Total members:', groupData.members.length);
+      console.log('Submitted count:', submittedCount);
+      console.log('Minimum required:', groupData.members.length - 1);
+      
+      if (submittedCount < groupData.members.length - 1) { // Less than n-1 members submitted
+        console.log('Not enough submissions, disbanding group');
+        
+        // Update all members to remove group assignment but keep quiz completion status
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            current_group_id: null,
+            submitted: false // Reset submission status
+          })
+          .in('id', groupData.members.map(m => m.id));
+
+        if (updateError) {
+          console.error('Error disbanding group:', updateError);
+          return;
+        }
+
+        // Delete the group
+        const { error: deleteError } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupData.id);
+
+        if (deleteError) {
+          console.error('Error deleting group:', deleteError);
+          return;
+        }
+
+        console.log('Group successfully disbanded');
+        setGroup(null);
+        return;
+      } else {
+        console.log('Enough members submitted, keeping group');
+      }
+    } else {
+      console.log('Time not up yet');
+    }
+  };
+
+  const fetchData = async () => {
     if (!user) {
       console.log('No user available');
       return;
     }
 
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
       setError(null);
       
       console.log('Fetching data for user:', user.id);
@@ -184,8 +243,8 @@ export default function Dashboard() {
       }
       
       // Fetch group data with the prompt using a join
-        const { data: groupData, error: groupError } = await supabase
-          .from('groups')
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
         .select(`
           *,
           prompts!current_prompt_id(*)
@@ -204,8 +263,33 @@ export default function Dashboard() {
       }
 
       console.log('Group data:', groupData);
+
+      // Use the next_prompt_due from the group table
+      if (groupData.next_prompt_due) {
+        console.log('Next prompt due:', groupData.next_prompt_due);
+        const nextPromptDue = new Date(groupData.next_prompt_due);
+        setPromptDueDate(nextPromptDue);
+        
+        // Initialize timer display
+        const now = new Date();
+        if (now > nextPromptDue) {
+          setTimeLeft('Next prompt coming soon!');
+        } else {
+          const hours = Math.floor((nextPromptDue.getTime() - now.getTime()) / (1000 * 60 * 60));
+          const minutes = Math.floor(((nextPromptDue.getTime() - now.getTime()) % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor(((nextPromptDue.getTime() - now.getTime()) % (1000 * 60)) / 1000);
+          setTimeLeft(`${hours}h ${minutes}m ${seconds}s until next prompt`);
+        }
+      } else {
+        console.log('No next_prompt_due set for group');
+        setTimeLeft('Next prompt time not set');
+      }
+      
       setGroup(groupData);
       setCurrentPrompt(groupData.prompts);
+
+      // Check group status (submissions and time)
+      await checkGroupStatus(groupData);
 
       // Fetch all users in this group
       const { data: groupMembers, error: membersError } = await supabase
@@ -291,18 +375,68 @@ export default function Dashboard() {
     
   useEffect(() => {
     fetchData();
+  }, [user]); // Only fetch data when user changes
 
-    // Set up timer update
+  // Separate effect for timer updates
+  useEffect(() => {
+    if (!promptDueDate) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      if (now > promptDueDate) {
+        setTimeLeft('Next prompt coming soon!');
+        return true; // Return true to indicate timer should stop
+      } else {
+        const hours = Math.floor((promptDueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+        const minutes = Math.floor(((promptDueDate.getTime() - now.getTime()) % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor(((promptDueDate.getTime() - now.getTime()) % (1000 * 60)) / 1000);
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s until next prompt`);
+        return false; // Return false to indicate timer should continue
+      }
+    };
+
+    // Initial update
+    const shouldStop = updateTimer();
+    if (shouldStop) return;
+
+    // Set up interval for updates
     const timer = setInterval(() => {
-      if (group?.created_at) {
-        const nextCheckIn = new Date(group.created_at);
-        nextCheckIn.setHours(nextCheckIn.getHours() + 24);
-        setTimeLeft(formatDistanceToNowStrict(nextCheckIn, { addSuffix: true }));
+      const shouldStop = updateTimer();
+      if (shouldStop) {
+        clearInterval(timer);
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [user]);
+  }, [promptDueDate]); // Only re-run when promptDueDate changes
+
+  // Separate effect for handling time up
+  useEffect(() => {
+    if (promptDueDate) {
+      const now = new Date();
+      if (now > promptDueDate) {
+        console.log('Timer expired, checking group status');
+        setTimeLeft('Next prompt coming soon!');
+        // Refresh data after 5 seconds
+        const refreshTimer = setTimeout(() => {
+          console.log('Refreshing data after timer expiration');
+          fetchData();
+        }, 5000);
+        return () => clearTimeout(refreshTimer);
+      }
+    }
+  }, [promptDueDate]);
+
+  // Separate effect for checking group status
+  useEffect(() => {
+    if (group && promptDueDate) {
+      const now = new Date();
+      if (now > promptDueDate) {
+        console.log('Timer expired in group status effect, checking group');
+        checkGroupStatus(group);
+      }
+    }
+  }, [group, promptDueDate]);
   
   const handleSignOut = async () => {
     try {
@@ -451,6 +585,42 @@ export default function Dashboard() {
     );
   }
 
+  // Show queue page if user has completed quiz but isn't in a group
+  if (hasCompletedQuiz && !group) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.queueContent}>
+          <MaterialCommunityIcons
+            name="account-group"
+            size={80}
+            color="#007AFF"
+            style={styles.queueIcon}
+          />
+          <Text style={styles.queueTitle}>Finding Your Crew</Text>
+          <Text style={styles.queueSubtitle}>
+            We're matching you with compatible group members based on your preferences and personality.
+          </Text>
+          <TouchableOpacity 
+            style={[styles.promptButton, styles.notifyButton]}
+            onPress={() => {
+              // TODO: Implement notification subscription
+              Alert.alert(
+                'Notifications Enabled',
+                'We\'ll notify you when your group is ready!',
+                [{ text: 'OK' }]
+              );
+            }}
+          >
+            <Text style={styles.promptButtonText}>Notify Me When Ready</Text>
+          </TouchableOpacity>
+          <Text style={styles.queueHint}>
+            This usually takes a few minutes. Feel free to check back later!
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -526,11 +696,16 @@ export default function Dashboard() {
           <Card style={styles.timerCard}>
             <View style={styles.timerContent}>
               <Clock size={24} color={theme.colors.primary} />
-              <Text style={styles.timerText}>{timeLeft}</Text>
+              <Text style={[
+                styles.timerText,
+                timeLeft === 'Next prompt coming soon!' && styles.timerTextExpired
+              ]}>
+                {timeLeft || 'Loading...'}
+              </Text>
             </View>
           </Card>
-          </View>
-          
+        </View>
+        
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Prompt</Text>
           <Card style={styles.promptCard}>
@@ -818,5 +993,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
+  },
+  queueContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  queueIcon: {
+    marginBottom: theme.spacing.lg,
+  },
+  queueTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: theme.typography.fontSize.xl,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing.md,
+  },
+  queueSubtitle: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  queueHint: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+  notifyButton: {
+    backgroundColor: theme.colors.primary,
+    marginVertical: theme.spacing.lg,
+    minWidth: 200,
+  },
+  timerTextExpired: {
+    color: theme.colors.error,
   },
 });
