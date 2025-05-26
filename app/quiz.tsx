@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Alert, Linking, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { theme } from '../constants/theme';
 
 interface Question {
   id: number;
@@ -17,12 +21,26 @@ interface QuizAnswers {
   [key: number]: string;
 }
 
+const LANGUAGES = [
+  'English',
+  'Mandarin Chinese',
+  'Hindi',
+  'Spanish',
+  'Arabic',
+  'Bengali',
+  'Portuguese',
+  'Russian',
+  'Japanese',
+  'French'
+];
+
 export default function QuizScreen() {
   const { user } = useAuth();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [error, setError] = useState('');
   const [textInput, setTextInput] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const questions: Question[] = [
     {
@@ -132,12 +150,22 @@ export default function QuizScreen() {
     },
     {
       id: 12,
-      text: 'Where are you located?',
+      text: 'What is your postal code? (Enter your local postal/zip code)',
       type: 'text',
     },
     {
       id: 13,
       text: 'What is your preferred language?',
+      type: 'text',
+    },
+    {
+      id: 14,
+      text: 'Write a short bio about yourself (2-3 sentences)',
+      type: 'text',
+    },
+    {
+      id: 15,
+      text: 'Profile picture URL (optional) - You can paste a link to your photo or leave blank to use a default avatar',
       type: 'text',
     },
   ];
@@ -203,7 +231,9 @@ export default function QuizScreen() {
             has_completed_quiz: true,
             preferred_name: newAnswers[10],
             location: newAnswers[11],
-            preferred_language: newAnswers[12]
+            preferred_language: newAnswers[12],
+            bio: newAnswers[13],
+            avatar_url: newAnswers[14] || null
           })
           .eq('id', user?.id);
 
@@ -221,8 +251,90 @@ export default function QuizScreen() {
   };
 
   const handleTextSubmit = () => {
-    if (textInput.trim()) {
-      handleAnswer(textInput.trim());
+    if (!textInput.trim()) return;
+
+    // Validate postal code format
+    if (currentQuestion === 11) { // Index 11 is the postal code question
+      // Allow letters, numbers, spaces, and hyphens for international postal codes
+      const postalCodeRegex = /^[A-Za-z0-9\s\-]{3,10}$/;
+      if (!postalCodeRegex.test(textInput.trim())) {
+        setError('Please enter a valid postal code (3-10 characters, letters, numbers, spaces, or hyphens)');
+        return;
+      }
+    }
+
+    handleAnswer(textInput.trim());
+  };
+
+  const handleTextChange = (text: string) => {
+    // Only modify text for postal code field
+    if (currentQuestion === 11) {
+      setTextInput(text.replace(/[^A-Za-z0-9\s\-]/g, ''));
+    } else {
+      // For all other fields, preserve the exact text as entered
+      setTextInput(text);
+    }
+  };
+
+  const handleUploadImage = async () => {
+    try {
+      console.log('Starting image upload process...');
+      
+      // Pick image with minimal configuration
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.1,
+        base64: true,
+      });
+
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets[0]) {
+        if (!user) return;
+
+        // Show loading state
+        setError('Uploading image...');
+
+        // Create simple filename
+        const fileName = `${user.id}/${Date.now()}.jpg`;
+        
+        // Use base64 directly from the picker result
+        const base64Data = result.assets[0].base64;
+        if (!base64Data) {
+          throw new Error('Failed to get image data');
+        }
+        
+        // Upload image to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('photos')
+          .upload(fileName, decode(base64Data), {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Failed to upload image. Please try again.');
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('photos')
+          .getPublicUrl(fileName);
+
+        // Update UI with the uploaded image
+        setSelectedImage(publicUrl);
+        setTextInput(publicUrl);
+        setError('');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setError('');
+      Alert.alert(
+        'Upload Failed',
+        'Failed to upload profile picture. Please try again.'
+      );
     }
   };
 
@@ -252,14 +364,92 @@ export default function QuizScreen() {
         <View style={styles.optionsContainer}>
           {questions[currentQuestion].type === 'text' ? (
             <View style={styles.textInputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Type your answer here..."
-                value={textInput}
-                onChangeText={setTextInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              {currentQuestion === 12 ? (
+                // Language selection dropdown
+                <View style={styles.languageContainer}>
+                  {LANGUAGES.map((language, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.languageOption,
+                        textInput === language && styles.selectedLanguage
+                      ]}
+                      onPress={() => setTextInput(language)}
+                    >
+                      <Text style={[
+                        styles.languageText,
+                        textInput === language && styles.selectedLanguageText
+                      ]}>
+                        {language}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : currentQuestion === 14 ? (
+                // Profile picture upload
+                <View style={styles.profilePictureContainer}>
+                  {selectedImage ? (
+                    <Image 
+                      source={{ uri: selectedImage }} 
+                      style={styles.profilePicture}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.profilePicturePlaceholder}>
+                      <MaterialCommunityIcons 
+                        name="account" 
+                        size={48} 
+                        color={theme.colors.text.tertiary} 
+                      />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[
+                      styles.uploadButton,
+                      error ? styles.uploadButtonDisabled : null
+                    ]}
+                    onPress={handleUploadImage}
+                    disabled={!!error}
+                  >
+                    <Text style={[
+                      styles.uploadButtonText,
+                      error ? styles.uploadButtonTextDisabled : null
+                    ]}>
+                      {selectedImage ? 'Change Photo' : 'Upload Photo'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.uploadHint}>
+                    Tap to take a photo with your camera
+                  </Text>
+                  {error && (
+                    <Text style={styles.errorText}>{error}</Text>
+                  )}
+                </View>
+              ) : (
+                // Regular text input for other fields
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    currentQuestion === 13 && styles.bioInput
+                  ]}
+                  value={textInput}
+                  onChangeText={handleTextChange}
+                  placeholder={
+                    currentQuestion === 10 ? "Enter your preferred name" :
+                    currentQuestion === 13 ? "Enter your bio" :
+                    "Enter your postal code..."
+                  }
+                  placeholderTextColor={theme.colors.text.tertiary}
+                  onSubmitEditing={handleTextSubmit}
+                  returnKeyType="done"
+                  maxLength={currentQuestion === 11 ? 10 : undefined}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  multiline={currentQuestion === 13}
+                  textAlignVertical={currentQuestion === 13 ? "top" : "center"}
+                />
+              )}
               <TouchableOpacity
                 style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
                 onPress={handleTextSubmit}
@@ -300,83 +490,201 @@ export default function QuizScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFAFA', // Off-white background
   },
   progressContainer: {
-    height: 4,
-    backgroundColor: '#f0f0f0',
+    height: 6,
+    backgroundColor: '#FFFFFF',
     width: '100%',
+    borderBottomWidth: 2,
+    borderBottomColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#87CEEB', // Light blue gradient
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: theme.spacing.lg,
   },
   questionNumber: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 10,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing.sm,
+    fontWeight: '600',
   },
   questionText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 30,
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing.xl,
+    lineHeight: 28,
   },
   optionsContainer: {
-    gap: 15,
-    marginBottom: 30,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
   },
   optionButton: {
-    padding: 20,
+    padding: theme.spacing.lg,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#000',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   selectedOption: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: '#000',
+    backgroundColor: '#87CEEB', // Light blue gradient
   },
   optionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  selectedOptionText: {
-    color: '#007AFF',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
     fontWeight: '500',
   },
+  selectedOptionText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   textInputContainer: {
-    marginTop: 10,
-    gap: 15,
+    marginTop: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 2,
+    borderColor: '#000',
     borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#fff',
+    padding: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+    fontWeight: '500',
+  },
+  bioInput: {
+    height: 120,
+    textAlignVertical: 'top',
   },
   submitButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
+    backgroundColor: '#87CEEB',
+    padding: theme.spacing.md,
     borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#E5E7EB',
+    borderColor: '#9CA3AF',
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '700',
   },
   submitButtonTextDisabled: {
-    color: '#666',
+    color: '#9CA3AF',
+  },
+  languageContainer: {
+    gap: theme.spacing.sm,
+  },
+  languageOption: {
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  selectedLanguage: {
+    backgroundColor: '#87CEEB',
+    borderColor: '#000',
+  },
+  languageText: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    fontWeight: '500',
+  },
+  selectedLanguageText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  profilePictureContainer: {
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  profilePicture: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  profilePicturePlaceholder: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 2,
+    borderColor: '#000',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadButton: {
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  uploadButtonText: {
+    color: '#FFFFFF',
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '700',
+  },
+  uploadHint: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.fontSize.sm,
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+    borderColor: '#9CA3AF',
+  },
+  uploadButtonTextDisabled: {
+    color: '#9CA3AF',
   },
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../lib/auth';
+import { theme } from '../../constants/theme';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -56,41 +57,71 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: theme.spacing.xl,
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFAFA', // Off-white background
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: theme.typography.fontSize.xxl,
+    fontWeight: '700',
+    marginBottom: theme.spacing.xl,
     textAlign: 'center',
+    color: theme.colors.text.primary,
+    fontFamily: 'Poppins-SemiBold',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: '#000',
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    marginBottom: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+    fontWeight: '500',
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
+    backgroundColor: '#87CEEB',
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    marginBottom: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '700',
+    fontSize: theme.typography.fontSize.md,
+    fontFamily: 'Poppins-SemiBold',
   },
   link: {
-    color: '#007AFF',
+    color: theme.colors.text.primary,
     textAlign: 'center',
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    marginTop: theme.spacing.sm,
   },
   error: {
-    color: 'red',
-    marginBottom: 15,
+    color: '#EF4444',
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    backgroundColor: '#FEF2F2',
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#EF4444',
   },
 }); 

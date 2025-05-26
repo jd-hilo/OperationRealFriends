@@ -129,49 +129,13 @@ export default function PromptScreen() {
         }
 
         // Fetch all submissions for testing
-        console.log('Fetching all submissions for testing');
+        console.log('Fetching submissions for current group');
         console.log('Current user ID:', user.id);
         console.log('Current group ID:', groupData.id);
         console.log('Current prompt ID:', groupData.prompts.id);
-        console.log('Group member IDs:', groupData.member_ids);
         
         try {
-          // First check if user is in the group
-          const isUserInGroup = groupData.member_ids.includes(user.id);
-          console.log('Is user in group:', isUserInGroup);
-
-          // First try to fetch any submissions for this prompt
-          const { data: promptSubmissions, error: promptSubmissionsError } = await supabase
-            .from('submissions')
-            .select('*')
-            .eq('prompt_id', groupData.prompts.id);
-          
-          console.log('All submissions for this prompt:', promptSubmissions);
-          if (promptSubmissionsError) {
-            console.error('Error fetching prompt submissions:', promptSubmissionsError);
-          }
-
-          // Now fetch submissions for this group and prompt
-          const { data: allSubmissions, error: allSubmissionsError } = await supabase
-            .from('submissions')
-            .select('*')
-            .eq('group_id', groupData.id)
-            .eq('prompt_id', groupData.prompts.id)
-            .order('created_at', { ascending: true });
-          
-          if (allSubmissionsError) {
-            console.error('Error fetching submissions:', allSubmissionsError);
-            return;
-          }
-
-          console.log('Raw submissions data for group and prompt:', allSubmissions);
-          
-          if (!allSubmissions || allSubmissions.length === 0) {
-            console.log('No submissions found in the database for this group and prompt');
-            return;
-          }
-
-          // Now fetch the related user and prompt data
+          // Fetch submissions for this group and prompt
           const { data: submissionsWithRelations, error: relationsError } = await supabase
             .from('submissions')
             .select(`
@@ -183,7 +147,10 @@ export default function PromptScreen() {
               created_at,
               users:user_id (
                 id,
-                email
+                email,
+                preferred_name,
+                avatar_url,
+                current_group_id
               ),
               prompts:prompt_id (
                 id,
@@ -200,18 +167,25 @@ export default function PromptScreen() {
           }
 
           console.log('Submissions with relations:', submissionsWithRelations);
-          setSubmissions(submissionsWithRelations || []);
+          
+          // Filter submissions to only include users in the current group
+          const filteredSubmissions = submissionsWithRelations?.filter(submission => {
+            const submissionUser = submission.users as unknown as User;
+            return submissionUser?.current_group_id === groupData.id;
+          }) || [];
+          
+          setSubmissions(filteredSubmissions);
 
-          // Create user map from the joined data
-          const userMap = submissionsWithRelations?.reduce((acc, submission) => {
-            const user = submission.users as unknown as User;
-            if (user) {
-              acc[user.id] = user;
+          // Create user map from the filtered submissions
+          const userMap = filteredSubmissions.reduce((acc: Record<string, User>, submission) => {
+            const submissionUser = submission.users as unknown as User;
+            if (submissionUser) {
+              acc[submissionUser.id] = submissionUser;
             }
             return acc;
-          }, {} as Record<string, User>);
+          }, {});
           
-          setUsers(userMap || {});
+          setUsers(userMap);
         } catch (error) {
           console.error('Unexpected error fetching submissions:', error);
         }
@@ -238,14 +212,15 @@ export default function PromptScreen() {
                 .eq('id', newSubmission.user_id)
                 .single();
 
-              if (userData) {
+              // Only add the submission if the user is in the current group
+              if (userData && userData.current_group_id === groupData.id) {
                 setUsers(prev => ({
                   ...prev,
                   [userData.id]: userData
                 }));
+                
+                setSubmissions(prev => [...prev, newSubmission]);
               }
-              
-              setSubmissions(prev => [...prev, newSubmission]);
             }
           )
           .subscribe();
@@ -440,16 +415,19 @@ export default function PromptScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FAFAFA', // Off-white background
   },
   scrollView: {
     flex: 1,
   },
   promptContainer: {
     padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   promptHeader: {
     flexDirection: 'row',
@@ -460,26 +438,33 @@ const styles = StyleSheet.create({
   promptTitle: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   promptText: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
     lineHeight: 24,
+    fontWeight: '500',
   },
   inputContainer: {
     padding: theme.spacing.lg,
   },
   input: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: theme.spacing.md,
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.primary,
     minHeight: 150,
     textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+    fontWeight: '500',
   },
   characterCountContainer: {
     alignItems: 'flex-end',
@@ -489,6 +474,7 @@ const styles = StyleSheet.create({
   characterCount: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
+    fontWeight: '600',
   },
   responsesContainer: {
     padding: theme.spacing.lg,
@@ -497,11 +483,20 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   submissionCard: {
     marginBottom: theme.spacing.md,
     padding: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   submissionHeader: {
     flexDirection: 'row',
@@ -513,6 +508,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: theme.spacing.sm,
+    borderWidth: 2,
+    borderColor: '#000',
   },
   submissionInfo: {
     flex: 1,
@@ -520,16 +517,18 @@ const styles = StyleSheet.create({
   submissionUsername: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   submissionTime: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
+    fontWeight: '500',
   },
   submissionText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.primary,
     lineHeight: 22,
+    fontWeight: '500',
   },
   noResponsesText: {
     fontSize: theme.typography.fontSize.md,
@@ -537,5 +536,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: theme.spacing.md,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
 });

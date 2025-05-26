@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
-import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type } from 'lucide-react-native';
+import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type, MapPin } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Card from '../../components/Card';
@@ -11,6 +11,8 @@ import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
 import { refreshPromptForTestGroup } from '../../lib/prompts';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
 
@@ -82,13 +84,47 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
       />
       {!submitted && (
         <View style={styles.avatarOverlay}>
-          <View style={styles.overlayContent}>
+                      <View style={styles.avatarOverlay}>
             <Clock size={16} color="#FFFFFF" />
           </View>
         </View>
       )}
     </View>
   );
+};
+
+// Function to get coordinates from postal code
+const getCoordinatesFromPostalCode = async (postalCode: string) => {
+  try {
+    console.log('Geocoding postal code:', postalCode);
+    
+    // For US ZIP codes, add "USA" to improve accuracy
+    const searchQuery = postalCode.length === 5 ? `${postalCode}, USA` : postalCode;
+    console.log('Search query:', searchQuery);
+    
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
+    );
+    const data = await response.json();
+    
+    console.log('Geocoding response:', data);
+    
+    if (data && data.length > 0) {
+      const result = {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon),
+        country: data[0].display_name.split(',').pop()?.trim() || 'Unknown'
+      };
+      console.log('Geocoding result:', result);
+      return result;
+    }
+    
+    console.log('No results found for postal code:', postalCode);
+    return null;
+  } catch (error) {
+    console.error('Error geocoding postal code:', error);
+    return null;
+  }
 };
 
 export default function Dashboard() {
@@ -106,6 +142,7 @@ export default function Dashboard() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [promptDueDate, setPromptDueDate] = useState<Date | null>(null);
   const hasRefreshedRef = useRef(false);
+  const [userLocations, setUserLocations] = useState<{[key: string]: {latitude: number, longitude: number, name: string, country: string}}>({});
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -332,6 +369,58 @@ export default function Dashboard() {
 
         console.log('Group members:', groupMembers);
         setGroup(prev => prev ? { ...prev, members: groupMembers } : null);
+        
+        // Get coordinates for each member's postal code
+        const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
+        
+        for (const member of groupMembers || []) {
+          try {
+            console.log('Processing member:', member.email, 'Location:', member.location);
+            
+            if (member.location) {
+              const coords = await getCoordinatesFromPostalCode(member.location);
+              if (coords) {
+                locations[member.id] = {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                  name: member.email?.split('@')[0] || 'Anonymous',
+                  country: coords.country
+                };
+                console.log('Added location for member:', member.email, locations[member.id]);
+              } else {
+                console.log('No coordinates found for member:', member.email);
+                // Default location if geocoding fails
+                locations[member.id] = {
+                  latitude: 0,
+                  longitude: 0,
+                  name: member.email?.split('@')[0] || 'Anonymous',
+                  country: 'Location not set'
+                };
+              }
+            } else {
+              console.log('No location set for member:', member.email);
+              // Default location for users without a postal code
+              locations[member.id] = {
+                latitude: 0,
+                longitude: 0,
+                name: member.email?.split('@')[0] || 'Anonymous',
+                country: 'Location not set'
+              };
+            }
+          } catch (error) {
+            console.error(`Error getting coordinates for user ${member.id}:`, error);
+            // Add user with default location if there's an error
+            locations[member.id] = {
+              latitude: 0,
+              longitude: 0,
+              name: member.email?.split('@')[0] || 'Anonymous',
+              country: 'Location not set'
+            };
+          }
+        }
+        
+        console.log('Final locations object:', locations);
+        setUserLocations(locations);
       }
         
       // Fetch submissions for the current prompt
@@ -664,7 +753,7 @@ export default function Dashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Members</Text>
+          <Text style={styles.sectionTitle}>Meet Your Group</Text>
           <View style={styles.membersContainer}>
             <View style={styles.membersList}>
               {group?.members?.map((member) => (
@@ -674,20 +763,25 @@ export default function Dashboard() {
                     style={styles.memberAvatar}
                   />
                   <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{member.email}</Text>
-                    <Text style={styles.memberStatus}>
-                      {member.submitted ? 'Submitted' : 'Not submitted'}
-                  </Text>
+                    <Text style={styles.memberName}>
+                      {member.preferred_name || member.email?.split('@')[0] || 'Anonymous'}
+                    </Text>
+                    <Text style={[
+                      styles.memberStatus,
+                      member.submitted ? styles.memberStatusSubmitted : styles.memberStatusPending
+                    ]}>
+                      {member.submitted ? 'Checked in' : 'Not checked in'}
+                    </Text>
                   </View>
                   {member.submitted && (
                     <CheckCircle2 size={20} color={theme.colors.primary} />
                   )}
                 </View>
               ))}
-          </View>
-          <Text style={styles.membersStats}>
+            </View>
+            <Text style={styles.membersStats}>
               {group?.members?.filter(m => m.submitted).length || 0}/{group?.members?.length || 0} checked in today
-          </Text>
+            </Text>
           </View>
         </View>
         
@@ -726,13 +820,6 @@ export default function Dashboard() {
               )}
             </View>
             <View style={styles.promptActions}>
-          <TouchableOpacity 
-                style={[styles.promptButton, styles.refreshPromptButton]}
-                onPress={handleRefreshPrompt}
-              >
-                <RotateCw size={20} color="#FFFFFF" />
-                <Text style={styles.promptButtonText}>New Prompt</Text>
-              </TouchableOpacity>
               {!group ? (
                 <TouchableOpacity 
                   style={[styles.promptButton, styles.joinButton]}
@@ -756,6 +843,68 @@ export default function Dashboard() {
             </View>
           </Card>
         </View>
+
+        {/* Location Section */}
+        {group && group.members && group.members.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Group Locations</Text>
+            <Card style={styles.mapCard}>
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    latitudeDelta: 180,
+                    longitudeDelta: 360,
+                  }}
+                  showsUserLocation={false}
+                  showsMyLocationButton={false}
+                  toolbarEnabled={false}
+                  zoomEnabled={false}
+                  scrollEnabled={true}
+                  rotateEnabled={false}
+                  pitchEnabled={false}
+                >
+                  {Object.entries(userLocations).map(([userId, location]) => (
+                    <Marker
+                      key={userId}
+                      coordinate={{
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      }}
+                      title={location.name}
+                      description={location.country === 'Location not set' ? 'Location not set' : `From ${location.country}`}
+                    >
+                      <View style={[
+                        styles.customMarker,
+                        location.country === 'Location not set' && styles.defaultMarker
+                      ]}>
+                        <View style={[
+                          styles.markerInner,
+                          location.country === 'Location not set' && styles.defaultMarkerInner
+                        ]}>
+                          <MapPin size={16} color="#FFFFFF" />
+                        </View>
+                      </View>
+                    </Marker>
+                  ))}
+                </MapView>
+              </View>
+              <View style={styles.locationInfo}>
+                <View style={styles.locationHeader}>
+                  <MapPin size={20} color={theme.colors.primary} />
+                  <Text style={styles.locationText}>
+                    {Object.keys(userLocations).length} members in {new Set(Object.values(userLocations).map(loc => loc.country)).size} different countries
+                  </Text>
+                </View>
+                <Text style={styles.locationSubtext}>
+                  See where your group members are checking in from
+                </Text>
+              </View>
+            </Card>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -764,21 +913,30 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FAFAFA', // Off-white background
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   title: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: theme.typography.fontSize.xl,
     color: theme.colors.text.primary,
+    fontWeight: '700',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   streakContainer: {
     flexDirection: 'row',
@@ -789,6 +947,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  refreshButton: {
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  signOutButton: {
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   scrollContent: {
     padding: theme.spacing.lg,
@@ -801,24 +984,68 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700',
   },
   membersContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+    padding: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  membersList: {
+    gap: theme.spacing.sm,
   },
   memberItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.md,
+    padding: theme.spacing.sm,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  memberInfo: {
+    flex: 1,
   },
   memberName: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  memberStatus: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '500',
+  },
+  memberStatusSubmitted: {
+    color: theme.colors.primary,
+  },
+  memberStatusPending: {
+    color: theme.colors.text.secondary,
+  },
+  membersStats: {
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '600',
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
   avatarContainer: {
     position: 'relative',
@@ -830,7 +1057,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: theme.colors.primary,
+    borderColor: '#000',
   },
   avatarOverlay: {
     position: 'absolute',
@@ -843,124 +1070,98 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  overlayContent: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderRadius: 12,
-    padding: 4,
-  },
-  membersStats: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-  },
   timerCard: {
-    padding: theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
   },
   timerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
   },
   timerText: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: 'Nunito-SemiBold',
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
+    fontWeight: '700',
   },
   promptCard: {
-    padding: theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
   },
   promptText: {
     fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
-    marginBottom: theme.spacing.md,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   promptButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#87CEEB',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   promptButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: theme.typography.fontSize.md,
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  joinButton: {
+    backgroundColor: '#B0E0E6',
+  },
+  quizButton: {
+    backgroundColor: '#87CEEB',
   },
   pinContainer: {
     position: 'absolute',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   pinPulse: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  signOutButton: {
-    padding: theme.spacing.sm,
-  },
-  quizButton: {
-    backgroundColor: theme.colors.secondary,
-  },
-  joinButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  refreshButton: {
-    padding: theme.spacing.sm,
-  },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.sm,
-  },
-  membersList: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-  },
-  memberAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-  },
-  memberInfo: {
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  memberStatus: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
   },
   quizContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.xl,
+    backgroundColor: '#FAFAFA',
   },
   quizContent: {
     alignItems: 'center',
     gap: theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    padding: theme.spacing.xl,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   quizTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: theme.typography.fontSize.xl,
     color: theme.colors.text.primary,
     textAlign: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    fontWeight: '700',
   },
   quizDescription: {
     fontFamily: 'Nunito-Regular',
@@ -969,6 +1170,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
     lineHeight: 24,
+    fontWeight: '500',
   },
   promptHeader: {
     marginBottom: theme.spacing.md,
@@ -983,13 +1185,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.primary,
+    fontWeight: '600',
   },
   promptActions: {
     flexDirection: 'row',
     gap: theme.spacing.md,
   },
   refreshPromptButton: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: '#B0E0E6',
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
@@ -999,15 +1202,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.xl,
+    backgroundColor: '#FAFAFA',
   },
   queueIcon: {
     marginBottom: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   queueTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: theme.typography.fontSize.xl,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   queueSubtitle: {
     fontFamily: 'Nunito-Regular',
@@ -1015,19 +1231,92 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
+    fontWeight: '500',
+    backgroundColor: '#FFFFFF',
+    padding: theme.spacing.lg,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   queueHint: {
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '500',
+    marginTop: theme.spacing.md,
   },
   notifyButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#87CEEB',
     marginVertical: theme.spacing.lg,
     minWidth: 200,
   },
   timerTextExpired: {
     color: theme.colors.error,
+  },
+  mapCard: {
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  mapContainer: {
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  map: {
+    flex: 1,
+  },
+  customMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerInner: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  locationInfo: {
+    padding: theme.spacing.md,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  locationText: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  locationSubtext: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+  defaultMarker: {
+    opacity: 0.7,
+  },
+  defaultMarkerInner: {
+    backgroundColor: theme.colors.text.secondary,
   },
 });

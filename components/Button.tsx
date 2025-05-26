@@ -92,6 +92,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 120,
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -105,33 +112,36 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonPrimary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#87CEEB', // Light blue
   },
   buttonSecondary: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: '#B0E0E6', // Lighter blue
   },
   buttonOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#000',
   },
   buttonDisabled: {
     opacity: 0.5,
+    borderColor: '#9CA3AF',
   },
   textPrimary: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   textSecondary: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   textOutline: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: theme.colors.primary,
+    color: '#000',
+    fontWeight: '700',
   },
 });
 
