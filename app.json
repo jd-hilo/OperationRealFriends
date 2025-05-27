@@ -34,7 +34,10 @@
     "scheme": "pact",
     "extra": {
       "eas": {
-        "projectId": "4135b9a4-ecbe-471d-a1b5-a940517cc7a9"
+        "projectId": "4b91b1f8-9eef-48ad-b6ba-609ba25651f4"
+      },
+      "router": {
+        "origin": false
       }
     },
     "owner": "jd-hilo"

@@ -7,7 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "resourceClass": "m-medium"
       }
     },
     "development-simulator": {
@@ -18,12 +18,27 @@
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      }
     },
-    "production": {}
+    "production": {
+      "ios": {
+        "resourceClass": "m-medium",
+        "xcodeVersion": "16.0"
+      }
+    }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "jd@hilo.media",
+        "ascAppId": "6746424648",
+        "appleTeamId": "N8SACG5845",
+        "appName": "Pact"
+      }
+    }
   }
 }
  
