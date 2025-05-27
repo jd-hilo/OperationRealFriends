@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email, 
       password,
       options: {
-        emailRedirectTo: 'pact://auth/callback'
+        emailRedirectTo: 'https://pgnzcvlvyomsfvpiukqj.supabase.co/auth/v1/verify'
       }
     });
     console.log('Sign up response:', { data, error });
