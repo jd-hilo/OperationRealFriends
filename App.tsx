@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { registerBackgroundTask } from './lib/backgroundTasks';
 import * as Notifications from 'expo-notifications';
+import { AuthProvider, useAuth } from './lib/auth';
 
 // Types
 import { RootStackParamList } from './types';
@@ -15,9 +16,10 @@ SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+function AppContent() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [notification, setNotification] = useState<Notifications.Notification>();
+  const { loading: authLoading } = useAuth();
 
   const [fontsLoaded] = useFonts({
     'Nunito-Regular': require('./assets/fonts/Nunito-Regular.ttf'),
@@ -62,12 +64,12 @@ export default function App() {
   }, []);
 
   const onLayoutRootView = useCallback(async () => {
-    if (appIsReady && fontsLoaded) {
+    if (appIsReady && fontsLoaded && !authLoading) {
       await SplashScreen.hideAsync();
     }
-  }, [appIsReady, fontsLoaded]);
+  }, [appIsReady, fontsLoaded, authLoading]);
 
-  if (!appIsReady || !fontsLoaded) {
+  if (!appIsReady || !fontsLoaded || authLoading) {
     return null;
   }
 
@@ -86,5 +88,13 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
-import { LayoutAnimation, Platform, UIManager, View, StyleSheet } from 'react-native';
+import { LayoutAnimation, Platform, UIManager, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Home, MessageCircle, PenLine } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,21 +15,32 @@ if (Platform.OS === 'android') {
 }
 
 export default function TabLayout() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [hasGroup, setHasGroup] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkGroupStatus = async () => {
-      if (!user) return;
+      if (!user) {
+        setHasGroup(false);
+        setLoading(false);
+        return;
+      }
 
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('current_group_id')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('current_group_id')
+          .eq('id', user.id)
+          .single();
 
-      if (!error && userData) {
-        setHasGroup(!!userData.current_group_id);
+        if (!error && userData) {
+          setHasGroup(!!userData.current_group_id);
+        }
+      } catch (error) {
+        console.error('Error checking group status:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -40,6 +51,14 @@ export default function TabLayout() {
   const handleTabPress = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   };
+
+  if (authLoading || loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   if (!hasGroup) {
     return (
@@ -115,5 +134,9 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
