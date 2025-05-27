@@ -1,6 +1,6 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, Alert, Linking } from 'react-native';
 import { supabase } from './supabase';
 
 // Configure how notifications appear when the app is in the foreground
@@ -26,10 +26,14 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (Device.isDevice) {
+    console.log('Checking notification permissions...');
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    console.log('Existing permission status:', existingStatus);
+    
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
+      console.log('Requesting notification permissions...');
       const { status } = await Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
@@ -38,18 +42,42 @@ export async function registerForPushNotificationsAsync() {
           allowAnnouncements: true,
         },
       });
+      console.log('Permission request result:', status);
       finalStatus = status;
     }
     
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('Permission not granted, showing settings alert');
+      Alert.alert(
+        'Enable Notifications',
+        'To receive important updates, please enable notifications in your device settings.',
+        [
+          {
+            text: 'Not Now',
+            style: 'cancel',
+          },
+          {
+            text: 'Open Settings',
+            onPress: async () => {
+              console.log('Opening settings...');
+              if (Platform.OS === 'ios') {
+                await Linking.openURL('app-settings:');
+              } else {
+                await Linking.openSettings();
+              }
+            },
+          },
+        ]
+      );
       return null;
     }
     
     try {
+      console.log('Getting push token...');
       token = (await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PROJECT_ID,
+        projectId: '4b91b1f8-9eef-48ad-b6ba-609ba25651f4',
       })).data;
+      console.log('Successfully got push token:', token);
     } catch (error) {
       console.error('Error getting push token:', error);
       return null;
@@ -63,6 +91,7 @@ export async function registerForPushNotificationsAsync() {
 
 // Save the push token to Supabase
 export async function savePushToken(userId: string, token: string) {
+  console.log('Saving push token for user:', userId);
   const { error } = await supabase
     .from('users')
     .update({ push_token: token })
@@ -72,6 +101,7 @@ export async function savePushToken(userId: string, token: string) {
     console.error('Error saving push token:', error);
     throw error;
   }
+  console.log('Successfully saved push token');
 }
 
 // Send a test notification

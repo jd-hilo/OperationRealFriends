@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/auth';
 import { refreshPromptForTestGroup } from '../../lib/prompts';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 
 const { width } = Dimensions.get('window');
@@ -85,7 +86,7 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
       />
       {!submitted && (
         <View style={styles.avatarOverlay}>
-                      <View style={styles.avatarOverlay}>
+          <View style={styles.avatarOverlay}>
             <Clock size={16} color="#FFFFFF" />
           </View>
         </View>
@@ -637,41 +638,78 @@ export default function Dashboard() {
 
   const handleNotifyMe = async () => {
     try {
-      const token = await registerForPushNotificationsAsync();
+      console.log('Requesting notification permissions...');
+      
+      // First check if we already have permission
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      console.log('Existing permission status:', existingStatus);
+      
+      let token;
+      if (existingStatus === 'granted') {
+        console.log('Already have permission, getting token...');
+        token = await registerForPushNotificationsAsync();
+      } else {
+        console.log('Requesting new permission...');
+        const { status } = await Notifications.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowAnnouncements: true,
+          },
+        });
+        console.log('Permission request result:', status);
+        
+        if (status === 'granted') {
+          // Add a small delay to ensure the system has time to register the token
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log('Permission granted, getting token...');
+          token = await registerForPushNotificationsAsync();
+        }
+      }
       
       if (!token) {
+        console.log('No token received, showing settings alert');
         Alert.alert(
-          'Permission Required',
-          'Please enable notifications in your device settings to receive updates about your group.',
+          'Enable Notifications',
+          'To receive updates about your group, please enable notifications in your device settings.',
           [
             {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
-              }
+              text: 'Not Now',
+              style: 'cancel'
             },
             {
-              text: 'Cancel',
-              style: 'cancel'
+              text: 'Open Settings',
+              onPress: async () => {
+                console.log('Opening settings...');
+                if (Platform.OS === 'ios') {
+                  await Linking.openURL('app-settings:');
+                } else {
+                  await Linking.openSettings();
+                }
+              }
             }
           ]
         );
         return;
       }
 
+      console.log('Got push token, saving to Supabase...');
       if (user) {
         await savePushToken(user.id, token);
+        console.log('Push token saved successfully');
+        
         // Send a test notification
         await sendTestNotification(token);
+        console.log('Test notification sent');
+        
         Alert.alert(
           'Notifications Enabled',
           'We\'ll notify you when your group is ready!',
           [{ text: 'OK' }]
         );
+      } else {
+        console.log('No user found, cannot save push token');
       }
     } catch (error) {
       console.error('Error setting up notifications:', error);
