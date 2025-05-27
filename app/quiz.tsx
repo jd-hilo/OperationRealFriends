@@ -165,7 +165,7 @@ export default function QuizScreen() {
     },
     {
       id: 15,
-      text: 'Profile picture URL (optional) - You can paste a link to your photo or leave blank to use a default avatar',
+      text: 'Upload a picture of yourself',
       type: 'text',
     },
   ];
@@ -279,7 +279,7 @@ export default function QuizScreen() {
   const handleUploadImage = async () => {
     try {
       console.log('Starting image upload process...');
-      
+
       // Pick image with minimal configuration
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -293,19 +293,13 @@ export default function QuizScreen() {
       if (!result.canceled && result.assets[0]) {
         if (!user) return;
 
-        // Show loading state
         setError('Uploading image...');
-
-        // Create simple filename
         const fileName = `${user.id}/${Date.now()}.jpg`;
-        
-        // Use base64 directly from the picker result
         const base64Data = result.assets[0].base64;
         if (!base64Data) {
           throw new Error('Failed to get image data');
         }
-        
-        // Upload image to Supabase Storage
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('photos')
           .upload(fileName, decode(base64Data), {
@@ -318,12 +312,10 @@ export default function QuizScreen() {
           throw new Error('Failed to upload image. Please try again.');
         }
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('photos')
           .getPublicUrl(fileName);
 
-        // Update UI with the uploaded image
         setSelectedImage(publicUrl);
         setTextInput(publicUrl);
         setError('');
