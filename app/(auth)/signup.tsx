@@ -4,6 +4,11 @@ import { router } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { theme } from '../../constants/theme';
 
+const isValidEmail = (email: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,6 +18,19 @@ export default function SignUp() {
   const handleSignUp = async () => {
     try {
       setError('');
+      
+      // Validate email format
+      if (!isValidEmail(email)) {
+        setError('Please enter a valid email address');
+        return;
+      }
+
+      // Validate password length
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        return;
+      }
+
       await signUp(email, password);
       // Router will automatically redirect based on auth state
     } catch (err: any) {
@@ -33,6 +51,7 @@ export default function SignUp() {
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
+        autoComplete="email"
       />
       
       <TextInput
@@ -41,6 +60,7 @@ export default function SignUp() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="new-password"
       />
       
       <TouchableOpacity style={styles.button} onPress={handleSignUp}>

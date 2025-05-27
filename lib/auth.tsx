@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { Session, User } from '@supabase/supabase-js';
+import { registerForPushNotificationsAsync, savePushToken } from './notifications';
 
 interface AuthContextType {
   user: User | null;
@@ -52,6 +53,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error('Sign up error:', error);
       throw error;
+    }
+
+    // Register for push notifications after successful sign-up
+    if (data.user) {
+      try {
+        console.log('Registering for push notifications...');
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          console.log('Saving push token for new user:', data.user.id);
+          await savePushToken(data.user.id, token);
+        }
+      } catch (error) {
+        console.error('Error setting up push notifications:', error);
+        // Don't throw here, as the sign-up was successful
+      }
     }
   };
 
