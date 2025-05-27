@@ -28,14 +28,14 @@ export default function TabLayout() {
       }
 
       try {
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('current_group_id')
-          .eq('id', user.id)
-          .single();
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('current_group_id')
+        .eq('id', user.id)
+        .single();
 
-        if (!error && userData) {
-          setHasGroup(!!userData.current_group_id);
+      if (!error && userData) {
+        setHasGroup(!!userData.current_group_id);
         }
       } catch (error) {
         console.error('Error checking group status:', error);

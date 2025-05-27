@@ -86,7 +86,7 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
       />
       {!submitted && (
         <View style={styles.avatarOverlay}>
-          <View style={styles.avatarOverlay}>
+                      <View style={styles.avatarOverlay}>
             <Clock size={16} color="#FFFFFF" />
           </View>
         </View>
@@ -638,78 +638,44 @@ export default function Dashboard() {
 
   const handleNotifyMe = async () => {
     try {
-      console.log('Requesting notification permissions...');
-      
-      // First check if we already have permission
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log('Existing permission status:', existingStatus);
-      
-      let token;
-      if (existingStatus === 'granted') {
-        console.log('Already have permission, getting token...');
-        token = await registerForPushNotificationsAsync();
-      } else {
-        console.log('Requesting new permission...');
-        const { status } = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-            allowAnnouncements: true,
-          },
-        });
-        console.log('Permission request result:', status);
-        
-        if (status === 'granted') {
-          // Add a small delay to ensure the system has time to register the token
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log('Permission granted, getting token...');
-          token = await registerForPushNotificationsAsync();
-        }
+      console.log('=== Starting handleNotifyMe ===');
+      if (!user) {
+        console.log('No user found, cannot proceed');
+        Alert.alert('Error', 'Please sign in to enable notifications.');
+        return;
       }
+
+      console.log('User ID:', user.id);
+      console.log('Requesting notification permissions...');
+      const token = await registerForPushNotificationsAsync();
       
       if (!token) {
-        console.log('No token received, showing settings alert');
-        Alert.alert(
-          'Enable Notifications',
-          'To receive updates about your group, please enable notifications in your device settings.',
-          [
-            {
-              text: 'Not Now',
-              style: 'cancel'
-            },
-            {
-              text: 'Open Settings',
-              onPress: async () => {
-                console.log('Opening settings...');
-                if (Platform.OS === 'ios') {
-                  await Linking.openURL('app-settings:');
-                } else {
-                  await Linking.openSettings();
-                }
-              }
-            }
-          ]
-        );
+        console.log('No token received');
         return;
       }
 
       console.log('Got push token, saving to Supabase...');
-      if (user) {
-        await savePushToken(user.id, token);
-        console.log('Push token saved successfully');
+      try {
+        const result = await savePushToken(user.id, token);
+        console.log('Save token result:', result);
         
         // Send a test notification
+        console.log('Sending test notification...');
         await sendTestNotification(token);
-        console.log('Test notification sent');
+        console.log('Test notification sent successfully');
         
         Alert.alert(
           'Notifications Enabled',
           'We\'ll notify you when your group is ready!',
           [{ text: 'OK' }]
         );
-      } else {
-        console.log('No user found, cannot save push token');
+      } catch (saveError) {
+        console.error('Error saving token:', saveError);
+        Alert.alert(
+          'Error',
+          'Failed to save notification settings. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     } catch (error) {
       console.error('Error setting up notifications:', error);

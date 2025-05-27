@@ -25,65 +25,64 @@ export async function registerForPushNotificationsAsync() {
     });
   }
 
-  if (Device.isDevice) {
-    console.log('Checking notification permissions...');
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    console.log('Existing permission status:', existingStatus);
-    
-    let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
-      console.log('Requesting notification permissions...');
-      const { status } = await Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-          allowAnnouncements: true,
+  if (!Device.isDevice) {
+    console.log('Running in simulator - push notifications not supported');
+    Alert.alert(
+      'Simulator Detected',
+      'Push notifications are not supported in the simulator. Please test on a physical device.',
+      [{ text: 'OK' }]
+    );
+    return null;
+  }
+
+  console.log('Requesting notification permissions...');
+  const { status } = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+      allowAnnouncements: true,
+    },
+  });
+  console.log('Permission request result:', status);
+  
+  if (status !== 'granted') {
+    console.log('Permission not granted, showing settings alert');
+    Alert.alert(
+      'Enable Notifications',
+      'To receive updates about your group, please enable notifications in your device settings.',
+      [
+        {
+          text: 'Not Now',
+          style: 'cancel'
         },
-      });
-      console.log('Permission request result:', status);
-      finalStatus = status;
-    }
-    
-    if (finalStatus !== 'granted') {
-      console.log('Permission not granted, showing settings alert');
-      Alert.alert(
-        'Enable Notifications',
-        'To receive important updates, please enable notifications in your device settings.',
-        [
-          {
-            text: 'Not Now',
-            style: 'cancel',
-          },
-          {
-            text: 'Open Settings',
-            onPress: async () => {
-              console.log('Opening settings...');
-              if (Platform.OS === 'ios') {
-                await Linking.openURL('app-settings:');
-              } else {
-                await Linking.openSettings();
-              }
-            },
-          },
-        ]
-      );
-      return null;
-    }
-    
-    try {
-      console.log('Getting push token...');
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: '4b91b1f8-9eef-48ad-b6ba-609ba25651f4',
-      })).data;
-      console.log('Successfully got push token:', token);
-    } catch (error) {
-      console.error('Error getting push token:', error);
-      return null;
-    }
-  } else {
-    console.log('Must use physical device for Push Notifications');
+        {
+          text: 'Open Settings',
+          onPress: async () => {
+            console.log('Opening settings...');
+            if (Platform.OS === 'ios') {
+              await Linking.openURL('app-settings:');
+            } else {
+              await Linking.openSettings();
+            }
+          }
+        }
+      ]
+    );
+    return null;
+  }
+  
+  try {
+    console.log('Getting push token...');
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({
+      projectId: '4b91b1f8-9eef-48ad-b6ba-609ba25651f4',
+    });
+    console.log('Full token response:', tokenResponse);
+    token = tokenResponse.data;
+    console.log('Successfully got push token:', token);
+  } catch (error) {
+    console.error('Error getting push token:', error);
+    return null;
   }
 
   return token;
@@ -91,17 +90,27 @@ export async function registerForPushNotificationsAsync() {
 
 // Save the push token to Supabase
 export async function savePushToken(userId: string, token: string) {
-  console.log('Saving push token for user:', userId);
-  const { error } = await supabase
-    .from('users')
-    .update({ push_token: token })
-    .eq('id', userId);
+  try {
+    // Simple update to users table
+    const { data, error } = await supabase
+      .from('users')
+      .update({ 
+        push_token: token
+      })
+      .eq('id', userId)
+      .select();
 
-  if (error) {
-    console.error('Error saving push token:', error);
+    if (error) {
+      console.error('Error saving token:', error);
+      throw error;
+    }
+
+    console.log('Token saved successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error in savePushToken:', error);
     throw error;
   }
-  console.log('Successfully saved push token');
 }
 
 // Send a test notification
