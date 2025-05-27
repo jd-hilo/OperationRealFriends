@@ -2,7 +2,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Pact - Friends for You',
+  name: 'Pact',
   slug: 'pact',
   version: '1.0.0',
   orientation: 'portrait',
@@ -17,21 +17,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     '**/*'
   ],
   ios: {
-    bundleIdentifier: 'media.hilo.pact',
-    supportsTablet: false,
-    buildNumber: process.env.EAS_BUILD_NUMBER || '2',
-    infoPlist: {
-      UIBackgroundModes: ['remote-notification']
-    }
+    supportsTablet: true,
+    bundleIdentifier: 'org.name.OperationRealSocial',
+    buildNumber: '5'
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff'
     },
-    package: 'media.hilo.pact',
-    googleServicesFile: './google-services.json',
-    permissions: ['NOTIFICATIONS']
+    package: 'org.name.OperationRealSocial'
   },
   web: {
     favicon: './assets/favicon.png'
@@ -44,14 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     }
   },
   plugins: [
-    'expo-router',
-    [
-      'expo-notifications',
-      {
-        icon: './assets/notification-icon.png',
-        color: '#ffffff',
-        sounds: ['./assets/notification-sound.wav']
-      }
-    ]
-  ]
+    'expo-router'
+  ],
+  scheme: 'pact'
 }); 
