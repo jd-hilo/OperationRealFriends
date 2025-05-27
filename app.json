@@ -16,7 +16,8 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "media.hilo.pact"
+      "bundleIdentifier": "media.hilo.pact",
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {

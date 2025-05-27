@@ -19,6 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'media.hilo.pact',
     supportsTablet: false,
+    buildNumber: '2',
     infoPlist: {
       UIBackgroundModes: ['remote-notification']
     }
