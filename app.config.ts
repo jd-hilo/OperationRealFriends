@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'media.hilo.pact',
     supportsTablet: false,
-    buildNumber: '2',
+    buildNumber: process.env.EAS_BUILD_NUMBER || '2',
     infoPlist: {
       UIBackgroundModes: ['remote-notification']
     }
@@ -37,8 +37,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png'
   },
   extra: {
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl: 'https://pgnzcvlvyomsfvpiukqj.supabase.co',
+    supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpjdmx2eW9tc2Z2cGl1a3FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0MzAzNjgsImV4cCI6MjA2MzAwNjM2OH0.Nna1ZHfWhzu2j-fNyrelYlJiljGFVhsuilxmOgByYms',
     eas: {
       projectId: '4b91b1f8-9eef-48ad-b6ba-609ba25651f4'
     }
