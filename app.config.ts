@@ -2,7 +2,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Pact',
+  name: 'Pact - Friends for You',
   slug: 'pact',
   version: '1.0.0',
   orientation: 'portrait',
