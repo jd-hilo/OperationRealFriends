@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator, Platform, Linking } from 'react-native';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
 import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type, MapPin } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/auth';
 import { refreshPromptForTestGroup } from '../../lib/prompts';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -634,6 +635,54 @@ export default function Dashboard() {
     }
   };
 
+  const handleNotifyMe = async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      
+      if (!token) {
+        Alert.alert(
+          'Permission Required',
+          'Please enable notifications in your device settings to receive updates about your group.',
+          [
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            }
+          ]
+        );
+        return;
+      }
+
+      if (user) {
+        await savePushToken(user.id, token);
+        // Send a test notification
+        await sendTestNotification(token);
+        Alert.alert(
+          'Notifications Enabled',
+          'We\'ll notify you when your group is ready!',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error setting up notifications:', error);
+      Alert.alert(
+        'Error',
+        'Failed to enable notifications. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -691,14 +740,7 @@ export default function Dashboard() {
           </Text>
           <TouchableOpacity 
             style={[styles.promptButton, styles.notifyButton]}
-            onPress={() => {
-              // TODO: Implement notification subscription
-              Alert.alert(
-                'Notifications Enabled',
-                'We\'ll notify you when your group is ready!',
-                [{ text: 'OK' }]
-              );
-            }}
+            onPress={handleNotifyMe}
           >
             <Text style={styles.promptButtonText}>Notify Me When Ready</Text>
           </TouchableOpacity>

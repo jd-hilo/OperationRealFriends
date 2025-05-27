@@ -1,17 +1,42 @@
 {
   "expo": {
+    "name": "Pact",
+    "slug": "pact",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "media.hilo.pact"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "media.hilo.pact"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "pact",
     "extra": {
       "eas": {
         "projectId": "4135b9a4-ecbe-471d-a1b5-a940517cc7a9"
       }
     },
-    "owner": "jd-hilo",
-    "scheme": "media.hilo.realsocial",
-    "ios": {
-      "bundleIdentifier": "media.hilo.realsocial",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    }
+    "owner": "jd-hilo"
   }
 }

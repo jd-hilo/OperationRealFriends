@@ -2,8 +2,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'OperationRealSocial',
-  slug: 'operation-real-social',
+  name: 'Pact',
+  slug: 'pact',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -17,14 +17,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     '**/*'
   ],
   ios: {
-    bundleIdentifier: 'com.operationrealsocial.app'
+    bundleIdentifier: 'media.hilo.pact',
+    supportsTablet: false,
+    infoPlist: {
+      UIBackgroundModes: ['remote-notification']
+    }
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff'
     },
-    package: 'com.operationrealsocial.app'
+    package: 'media.hilo.pact',
+    googleServicesFile: './google-services.json',
+    permissions: ['NOTIFICATIONS']
   },
   web: {
     favicon: './assets/favicon.png'
@@ -33,10 +39,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     eas: {
-      projectId: process.env.EAS_PROJECT_ID
+      projectId: '4884a7c1-d33d-449f-add3-e6ea1a7740a3'
     }
   },
   plugins: [
-    'expo-router'
+    'expo-router',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/notification-icon.png',
+        color: '#ffffff',
+        sounds: ['./assets/notification-sound.wav']
+      }
+    ]
   ]
 }); 
