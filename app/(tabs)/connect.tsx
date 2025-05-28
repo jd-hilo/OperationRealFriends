@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { Message, User, Submission, Prompt } from '../../types';
 import Card from '../../components/Card';
 import { useAuth } from '../../lib/auth';
-import { translateMessage, Language } from '../../lib/translations';
+import { translateMessage, Language, LANGUAGES } from '../../lib/translations';
 
 interface ChatMessageProps {
   message: Message;
@@ -46,15 +46,22 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser,
   useEffect(() => {
     const translateIfNeeded = async () => {
       if (!isCurrentUser && currentUserLanguage) {
-        setIsTranslating(true);
-        try {
-          const translated = await translateMessage(message.message_text, currentUserLanguage as Language);
-          setTranslatedText(translated);
-        } catch (error) {
-          console.error('Translation error:', error);
-          setTranslatedText(message.message_text);
-        } finally {
-          setIsTranslating(false);
+        // Find the language key that matches the user's preferred language
+        const targetLanguage = Object.entries(LANGUAGES).find(
+          ([_, value]) => value === currentUserLanguage
+        )?.[0] as Language | undefined;
+
+        if (targetLanguage) {
+          setIsTranslating(true);
+          try {
+            const translated = await translateMessage(message.message_text, targetLanguage);
+            setTranslatedText(translated);
+          } catch (error) {
+            console.error('Translation error:', error);
+            setTranslatedText(message.message_text);
+          } finally {
+            setIsTranslating(false);
+          }
         }
       }
     };
@@ -118,20 +125,27 @@ const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, promp
   useEffect(() => {
     const translateIfNeeded = async () => {
       if (!isCurrentUser && currentUserLanguage) {
-        setIsTranslating(true);
-        try {
-          const [translatedPromptText, translatedResponseText] = await Promise.all([
-            translateMessage(prompt?.content || '', currentUserLanguage as Language),
-            translateMessage(submission.response_text, currentUserLanguage as Language)
-          ]);
-          setTranslatedPrompt(translatedPromptText);
-          setTranslatedResponse(translatedResponseText);
-        } catch (error) {
-          console.error('Translation error:', error);
-          setTranslatedPrompt(prompt?.content || '');
-          setTranslatedResponse(submission.response_text);
-        } finally {
-          setIsTranslating(false);
+        // Find the language key that matches the user's preferred language
+        const targetLanguage = Object.entries(LANGUAGES).find(
+          ([_, value]) => value === currentUserLanguage
+        )?.[0] as Language | undefined;
+
+        if (targetLanguage) {
+          setIsTranslating(true);
+          try {
+            const [translatedPromptText, translatedResponseText] = await Promise.all([
+              translateMessage(prompt?.content || '', targetLanguage),
+              translateMessage(submission.response_text, targetLanguage)
+            ]);
+            setTranslatedPrompt(translatedPromptText);
+            setTranslatedResponse(translatedResponseText);
+          } catch (error) {
+            console.error('Translation error:', error);
+            setTranslatedPrompt(prompt?.content || '');
+            setTranslatedResponse(submission.response_text);
+          } finally {
+            setIsTranslating(false);
+          }
         }
       }
     };

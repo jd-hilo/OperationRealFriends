@@ -20,27 +20,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string) => {
-    const { data, error } = await supabase
+  const ensureUserProfile = async (userId: string, email: string) => {
+    // First try to fetch the profile
+    const { data: existingProfile, error: fetchError } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return null;
+    // If profile exists, return it
+    if (existingProfile) {
+      return existingProfile;
     }
 
-    return data;
+    // If no profile exists, create one
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([
+        {
+          id: userId,
+          email: email,
+          created_at: new Date().toISOString(),
+          has_completed_quiz: false,
+          submitted: false,
+          last_submission_date: null,
+          current_group_id: null
+        }
+      ]);
+
+    if (insertError) {
+      console.error('Error creating user record:', insertError);
+      throw insertError;
+    }
+
+    // Fetch the newly created profile
+    const { data: newProfile, error: newFetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (newFetchError) {
+      console.error('Error fetching new user profile:', newFetchError);
+      throw newFetchError;
+    }
+
+    return newProfile;
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
+        try {
+          const profile = await ensureUserProfile(session.user.id, session.user.email || '');
+          setUser(profile);
+        } catch (error) {
+          console.error('Error ensuring user profile:', error);
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
@@ -50,8 +88,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
+        try {
+          const profile = await ensureUserProfile(session.user.id, session.user.email || '');
+          setUser(profile);
+        } catch (error) {
+          console.error('Error ensuring user profile:', error);
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
@@ -79,6 +122,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error('Sign up error:', error);
       throw error;
+    }
+
+    // Create and fetch user profile after successful signup
+    if (data.user) {
+      const profile = await ensureUserProfile(data.user.id, email);
+      setUser(profile);
     }
   };
 
