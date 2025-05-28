@@ -91,25 +91,36 @@ export async function registerForPushNotificationsAsync() {
 // Save the push token to Supabase
 export async function savePushToken(userId: string, token: string) {
   try {
-    // Simple update to users table
+    if (!userId || !token) {
+      console.error('savePushToken: Missing userId or token', { userId, token });
+      Alert.alert('Push Token Error', 'Missing user ID or push token.');
+      return;
+    }
     const { data, error } = await supabase
       .from('users')
       .update({ 
-        push_token: token
+        expo_push_token: token
       })
       .eq('id', userId)
       .select();
 
     if (error) {
-      console.error('Error saving token:', error);
-      throw error;
+      console.error('savePushToken: Error saving token:', error);
+      Alert.alert('Push Token Error', 'Failed to save push token to Supabase.');
+      return;
     }
 
-    console.log('Token saved successfully:', data);
+    if (!data || data.length === 0) {
+      console.error('savePushToken: No data returned after update');
+      Alert.alert('Push Token Error', 'No data returned after saving push token.');
+      return;
+    }
+
+    console.log('savePushToken: Token saved successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error in savePushToken:', error);
-    throw error;
+    console.error('savePushToken: Exception:', error);
+    Alert.alert('Push Token Error', 'Exception occurred while saving push token.');
   }
 }
 

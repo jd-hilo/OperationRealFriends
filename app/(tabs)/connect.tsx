@@ -7,11 +7,13 @@ import { supabase } from '../../lib/supabase';
 import { Message, User, Submission, Prompt } from '../../types';
 import Card from '../../components/Card';
 import { useAuth } from '../../lib/auth';
+import { translateMessage, Language } from '../../lib/translations';
 
 interface ChatMessageProps {
   message: Message;
   user: User;
   isCurrentUser: boolean;
+  currentUserLanguage?: string;
 }
 
 const DaySeparator: React.FC<{ date: Date }> = ({ date }) => {
@@ -37,7 +39,29 @@ const DaySeparator: React.FC<{ date: Date }> = ({ date }) => {
   );
 };
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser, currentUserLanguage }) => {
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  useEffect(() => {
+    const translateIfNeeded = async () => {
+      if (!isCurrentUser && currentUserLanguage) {
+        setIsTranslating(true);
+        try {
+          const translated = await translateMessage(message.message_text, currentUserLanguage as Language);
+          setTranslatedText(translated);
+        } catch (error) {
+          console.error('Translation error:', error);
+          setTranslatedText(message.message_text);
+        } finally {
+          setIsTranslating(false);
+        }
+      }
+    };
+
+    translateIfNeeded();
+  }, [message.message_text, isCurrentUser, currentUserLanguage]);
+
   if (isCurrentUser) {
     // Keep current user messages as is
     return (
@@ -63,7 +87,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser 
         />
       <View style={[styles.messageBubble, styles.otherUserBubble, styles.shadowMd]}>
         <Text style={styles.usernameBold}>{user?.email?.split('@')[0] || 'Anonymous'}</Text>
-        <Text style={styles.messageText}>{message.message_text}</Text>
+        {isTranslating ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} style={styles.translatingIndicator} />
+        ) : (
+          <Text style={styles.messageText}>
+            {translatedText || message.message_text}
+          </Text>
+        )}
         <Text style={styles.timestamp}>
           {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
         </Text>
@@ -77,9 +107,38 @@ interface SubmissionPostProps {
   user: User;
   prompt: Prompt;
   isCurrentUser: boolean;
+  currentUserLanguage?: string;
 }
 
-const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, prompt, isCurrentUser }) => {
+const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, prompt, isCurrentUser, currentUserLanguage }) => {
+  const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
+  const [translatedResponse, setTranslatedResponse] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  useEffect(() => {
+    const translateIfNeeded = async () => {
+      if (!isCurrentUser && currentUserLanguage) {
+        setIsTranslating(true);
+        try {
+          const [translatedPromptText, translatedResponseText] = await Promise.all([
+            translateMessage(prompt?.content || '', currentUserLanguage as Language),
+            translateMessage(submission.response_text, currentUserLanguage as Language)
+          ]);
+          setTranslatedPrompt(translatedPromptText);
+          setTranslatedResponse(translatedResponseText);
+        } catch (error) {
+          console.error('Translation error:', error);
+          setTranslatedPrompt(prompt?.content || '');
+          setTranslatedResponse(submission.response_text);
+        } finally {
+          setIsTranslating(false);
+        }
+      }
+    };
+
+    translateIfNeeded();
+  }, [prompt?.content, submission.response_text, isCurrentUser, currentUserLanguage]);
+
   return (
     <Card style={styles.submissionPost}>
       <View style={styles.submissionHeader}>
@@ -95,8 +154,14 @@ const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, promp
         </View>
       </View>
       <View style={styles.submissionContent}>
-        <Text style={styles.submissionPrompt}>"{prompt?.content}"</Text>
-        <Text style={styles.submissionResponse}>{submission.response_text}</Text>
+        {isTranslating ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} style={styles.translatingIndicator} />
+        ) : (
+          <>
+            <Text style={styles.submissionPrompt}>"{translatedPrompt || prompt?.content}"</Text>
+            <Text style={styles.submissionResponse}>{translatedResponse || submission.response_text}</Text>
+          </>
+        )}
       </View>
     </Card>
   );
@@ -475,6 +540,7 @@ export default function ConnectScreen() {
                       message={item.data as Message}
                       user={users[(item.data as Message).user_id]}
                       isCurrentUser={(item.data as Message).user_id === user?.id}
+                      currentUserLanguage={user?.preferred_language as Language | undefined}
                     />
                   ) : (
                     <SubmissionPost
@@ -482,6 +548,7 @@ export default function ConnectScreen() {
                       user={users[(item.data as Submission).user_id]}
                       prompt={prompts[(item.data as Submission).prompt_id]}
                       isCurrentUser={(item.data as Submission).user_id === user?.id}
+                      currentUserLanguage={user?.preferred_language as Language | undefined}
                     />
                   )}
                 </React.Fragment>
@@ -767,5 +834,8 @@ const styles = StyleSheet.create({
   submissionTime: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.text.tertiary,
+  },
+  translatingIndicator: {
+    marginVertical: theme.spacing.xs,
   },
 }); 

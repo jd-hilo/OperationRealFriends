@@ -15,6 +15,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
 
@@ -689,8 +690,9 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
+      <View style={[styles.container, styles.centered]}>
+        <LoadingSpinner size="large" />
+        <Text style={styles.loadingText}>Connecting you with your group around the world...</Text>
       </View>
     );
   }
@@ -840,7 +842,7 @@ export default function Dashboard() {
                 styles.timerText,
                 timeLeft === 'Next prompt coming soon!' && styles.timerTextExpired
               ]}>
-                {timeLeft || 'Loading...'}
+                {timeLeft || <LoadingSpinner />}
               </Text>
             </View>
           </Card>
@@ -852,7 +854,7 @@ export default function Dashboard() {
             <View style={styles.promptHeader}>
           <Text style={styles.promptText}>
                 {typeof group?.current_prompt === 'string' ? group.current_prompt : 
-                 currentPrompt?.content || "Loading prompt..."}
+                 currentPrompt?.content || <LoadingSpinner />}
               </Text>
               {currentPrompt?.prompt_type && (
                 <View style={styles.promptTypeContainer}>
@@ -1364,5 +1366,18 @@ const styles = StyleSheet.create({
   },
   defaultMarkerInner: {
     backgroundColor: theme.colors.text.secondary,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.lg,
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    fontFamily: 'Poppins-SemiBold',
+    fontWeight: '600',
+    paddingHorizontal: theme.spacing.xl,
   },
 });

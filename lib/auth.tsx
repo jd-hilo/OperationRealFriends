@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
+import { User } from '../types';
 import { registerForPushNotificationsAsync, savePushToken } from './notifications';
 
 interface AuthContextType {
@@ -19,16 +20,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+
+    return data;
+  };
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -53,21 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error('Sign up error:', error);
       throw error;
-    }
-
-    // Register for push notifications after successful sign-up
-    if (data.user) {
-      try {
-        console.log('Registering for push notifications...');
-        const token = await registerForPushNotificationsAsync();
-        if (token) {
-          console.log('Saving push token for new user:', data.user.id);
-          await savePushToken(data.user.id, token);
-        }
-      } catch (error) {
-        console.error('Error setting up push notifications:', error);
-        // Don't throw here, as the sign-up was successful
-      }
     }
   };
 

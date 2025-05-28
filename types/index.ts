@@ -18,6 +18,8 @@ export interface User {
   location?: string;
   preferred_language?: string;
   preferred_name?: string;
+  bio?: string;
+  quiz_answers?: QuizAnswers;
 }
 
 export interface QuizAnswers {

@@ -19,6 +19,7 @@ import Card from '../../components/Card';
 import { supabase } from '../../lib/supabase';
 import { Prompt, Submission, User, Group } from '../../types';
 import { useAuth } from '../../lib/auth';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface SubmissionCardProps {
   submission: Submission;
@@ -345,7 +346,7 @@ export default function PromptScreen() {
             {renderPromptTypeIcon()}
           </View>
           <Text style={styles.promptText}>
-            {prompt?.content || "Loading prompt..."}
+            {prompt?.content || <LoadingSpinner />}
           </Text>
       </View>
 
