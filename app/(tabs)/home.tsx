@@ -653,7 +653,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
   const handleNotifyMe = async () => {
     try {
       console.log('=== Starting handleNotifyMe ===');

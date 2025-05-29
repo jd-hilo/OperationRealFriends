@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { Session } from '@supabase/supabase-js';
 import { User } from '../types';
-import { registerForPushNotificationsAsync, savePushToken } from './notifications';
 
 interface AuthContextType {
   user: User | null;

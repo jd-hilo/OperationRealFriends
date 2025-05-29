@@ -99,7 +99,7 @@ export async function savePushToken(userId: string, token: string) {
     const { data, error } = await supabase
       .from('users')
       .update({ 
-        expo_push_token: token
+        push_token: token
       })
       .eq('id', userId)
       .select();
