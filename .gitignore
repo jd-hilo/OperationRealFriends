@@ -1,6 +1,10 @@
 # OSX
 .DS_Store
-
+android
+ios
+.expo
+package-lock.json
+yarn.lock
 # Xcode
 build/
 *.pbxuser
