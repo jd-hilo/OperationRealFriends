@@ -37,18 +37,20 @@ function RootLayoutNav() {
     registerForPushNotificationsAsync().then((t) => console.log("token :", t));
 
     const inAuthGroup = segments[0] === "(auth)";
+    const inWelcomeScreen = segments[0] === "welcome";
 
-    if (!user && !inAuthGroup) {
-      // Redirect to login if not authenticated and not in auth group
-      router.replace("/(auth)/login");
-    } else if (user && inAuthGroup) {
-      // Redirect to home if authenticated and in auth group
+    if (!user && !inAuthGroup && !inWelcomeScreen) {
+      // If not authenticated and not in auth or welcome screen, go to welcome
+      router.replace("/welcome");
+    } else if (user && (inAuthGroup || inWelcomeScreen)) {
+      // If authenticated and in auth or welcome screen, go to home
       router.replace("/(tabs)/home");
     }
   }, [user, loading, segments]);
 
   return (
     <Stack>
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
