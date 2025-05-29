@@ -1,19 +1,36 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator, Platform, Linking } from 'react-native';
-import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
-import { Smile, Clock, PenLine, Award, LogOut, RefreshCw, CheckCircle2, RotateCw, Mic, Camera, Type, MapPin } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Animated,
+  Dimensions,
+  Alert,
+} from 'react-native';
+import {
+  Clock,
+  Award,
+  LogOut,
+  RefreshCw,
+  CheckCircle2,
+  RotateCw,
+  Mic,
+  Camera,
+  Type,
+  MapPin,
+} from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
 import Card from '../../components/Card';
-import MemberIcon from '../../components/MemberIcon';
 import { supabase } from '../../lib/supabase';
 import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
 import { refreshPromptForTestGroup } from '../../lib/prompts';
 import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 import LoadingSpinner from '../../components/LoadingSpinner';
 

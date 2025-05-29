@@ -1,46 +1,44 @@
 {
   "expo": {
-    "name": "Pact - Friends for You",
+    "name": "Pact",
     "slug": "pact",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "media.hilo.pact",
-      "buildNumber": "2"
+      "supportsTablet": true,
+      "bundleIdentifier": "org.name.OperationRealSocial",
+      "buildNumber": "5",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "media.hilo.pact"
+      "package": "org.name.OperationRealSocial"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
-    "plugins": [
-      "expo-router"
-    ],
-    "scheme": "pact",
+    "owner": "jd-hilo",
     "extra": {
+      "supabaseUrl": "https://pgnzcvlvyomsfvpiukqj.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpjdmx2eW9tc2Z2cGl1a3FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0MzAzNjgsImV4cCI6MjA2MzAwNjM2OH0.Nna1ZHfWhzu2j-fNyrelYlJiljGFVhsuilxmOgByYms",
       "eas": {
         "projectId": "4b91b1f8-9eef-48ad-b6ba-609ba25651f4"
-      },
-      "router": {
-        "origin": false
       }
     },
-    "owner": "jd-hilo"
+    "plugins": ["expo-router"],
+    "scheme": "pact"
   }
 }
