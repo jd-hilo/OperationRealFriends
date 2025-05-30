@@ -40,15 +40,15 @@ async function sendExpoPushNotification(token: string, title: string, body: stri
 async function handleNotification(user_id: string, new_group_id: string) {
   console.log('Handling notification for user:', user_id, 'group:', new_group_id);
   
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    {
-      global: {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
         headers: { Authorization: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! },
-      },
-    }
-  )
+        },
+      }
+    )
 
   try {
     // Get user's push token
@@ -90,7 +90,7 @@ async function handleNotification(user_id: string, new_group_id: string) {
       if (notificationError) {
         console.error('Error creating notification:', notificationError);
         throw notificationError;
-      }
+    }
       
       console.log('Notification created successfully');
     } else {
