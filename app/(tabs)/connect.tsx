@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isSameDay } from 'date-fns';
 import { theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
-import { Message, User, Submission, Prompt } from '../../types';
+import { Message, User, Submission, Prompt, Reaction } from '../../types';
 import Card from '../../components/Card';
 import { useAuth } from '../../lib/auth';
 import { translateMessage, Language, LANGUAGES } from '../../lib/translations';
+import EmojiPicker from '../../components/EmojiPicker';
 
 interface ChatMessageProps {
   message: Message;
   user: User;
   isCurrentUser: boolean;
   currentUserLanguage?: string;
+  onDelete?: (message: Message) => void;
 }
 
 const DaySeparator: React.FC<{ date: Date }> = ({ date }) => {
@@ -39,9 +41,12 @@ const DaySeparator: React.FC<{ date: Date }> = ({ date }) => {
   );
 };
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser, currentUserLanguage }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser, currentUserLanguage, onDelete }) => {
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [localReactions, setLocalReactions] = useState<Reaction[]>(message.reactions || []);
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     const translateIfNeeded = async () => {
@@ -69,42 +74,228 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser,
     translateIfNeeded();
   }, [message.message_text, isCurrentUser, currentUserLanguage]);
 
+  const handleAddReaction = async (emoji: string) => {
+    try {
+      // Check if this emoji reaction already exists
+      const existingReaction = message.reactions?.find(r => r.emoji === emoji);
+      
+      if (existingReaction) {
+        // If user already reacted with this emoji, remove their reaction
+        if (existingReaction.user_id === currentUser?.id) {
+          const { error } = await supabase
+            .from('reactions')
+            .delete()
+            .match({ 
+              message_id: message.id, 
+              user_id: currentUser.id,
+              emoji: emoji 
+            });
+
+          if (error) throw error;
+        } else {
+          // Add user's reaction
+          const { error } = await supabase
+            .from('reactions')
+            .insert([{
+              message_id: message.id,
+              user_id: currentUser?.id,
+              emoji: emoji
+            }]);
+
+          if (error) throw error;
+        }
+      } else {
+        // Create new reaction
+        const { error } = await supabase
+          .from('reactions')
+          .insert([{
+            message_id: message.id,
+            user_id: currentUser?.id,
+            emoji: emoji
+          }]);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error handling reaction:', error);
+    }
+  };
+
+  const handleReactionPress = async (emoji: string, userId: string) => {
+    try {
+      if (userId === currentUser?.id) {
+        // If the current user clicked their own reaction, remove it
+        const { error } = await supabase
+          .from('reactions')
+          .delete()
+          .match({ 
+            message_id: message.id, 
+            user_id: currentUser.id,
+            emoji: emoji 
+          });
+
+        if (error) throw error;
+
+        // Update local state to remove the reaction
+        setLocalReactions(prev => 
+          prev.filter(r => !(r.emoji === emoji && r.user_id === currentUser.id))
+        );
+      } else {
+        // If clicking someone else's reaction, add your own
+        const { error } = await supabase
+          .from('reactions')
+          .insert([{
+            message_id: message.id,
+            user_id: currentUser?.id,
+            emoji: emoji
+          }]);
+
+        if (error) throw error;
+
+        // Update local state to add the new reaction
+        setLocalReactions(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            message_id: message.id,
+            user_id: currentUser!.id,
+            emoji: emoji,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error handling reaction:', error);
+    }
+  };
+
+  const handleLongPress = () => {
+    if (isCurrentUser && onDelete) {
+      onDelete(message);
+    }
+  };
+
+  // Update the reactions rendering to use localReactions instead of message.reactions
+  const renderReactions = () => {
+    if (!localReactions.length) return null;
+
+    const groupedReactions = localReactions.reduce((acc, reaction) => {
+      if (!acc[reaction.emoji]) {
+        acc[reaction.emoji] = {
+          count: 0,
+          users: []
+        };
+      }
+      acc[reaction.emoji].count++;
+      acc[reaction.emoji].users.push(reaction.user_id);
+      return acc;
+    }, {} as Record<string, { count: number; users: string[] }>);
+
+    return (
+      <View style={styles.reactionsContainer}>
+        {Object.entries(groupedReactions).map(([emoji, { count, users }]) => (
+          <TouchableOpacity
+            key={emoji}
+            style={[
+              styles.reactionBubble,
+              users.includes(currentUser?.id || '') && styles.ownReaction
+            ]}
+            onPress={() => handleReactionPress(emoji, users[0])}
+          >
+            <Text style={styles.reactionEmoji}>{emoji}</Text>
+            {count > 1 && (
+              <Text style={styles.reactionCount}>{count}</Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
   if (isCurrentUser) {
-    // Keep current user messages as is
     return (
       <View style={[styles.messageContainer, styles.currentUserMessage]}>
-        <View style={[styles.messageBubble, styles.currentUserBubble, styles.shadowMd]}>
-          <Text style={[styles.messageText, styles.currentUserText]}>
-            {message.message_text}
-          </Text>
-          <Text style={styles.timestamp}>
-            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-          </Text>
+        <View style={styles.messageWrapper}>
+          <Pressable
+            onLongPress={handleLongPress}
+            style={[styles.messageBubble, styles.currentUserBubble, styles.shadowMd]}
+          >
+            <Text style={[styles.messageText, styles.currentUserText]}>
+              {message.message_text}
+            </Text>
+            <View style={styles.messageFooter}>
+              <Text style={styles.timestamp}>
+                {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+              </Text>
+              <TouchableOpacity
+                style={styles.reactionButton}
+                onPress={() => setShowEmojiPicker(true)}
+              >
+                <MaterialCommunityIcons
+                  name="emoticon-outline"
+                  size={16}
+                  color={theme.colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
         </View>
+
+        {renderReactions()}
+
+        <EmojiPicker
+          visible={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onSelect={handleAddReaction}
+        />
       </View>
     );
   }
 
-  // For other users, show avatar as oval, name in bold, message, and white bubble with shadow
   return (
     <View style={[styles.messageContainer, styles.otherUserMessage]}>
-        <Image
-          source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
+      <Image
+        source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
         style={styles.avatarOval}
-        />
-      <View style={[styles.messageBubble, styles.otherUserBubble, styles.shadowMd]}>
-        <Text style={styles.usernameBold}>{user?.email?.split('@')[0] || 'Anonymous'}</Text>
-        {isTranslating ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} style={styles.translatingIndicator} />
-        ) : (
-          <Text style={styles.messageText}>
-            {translatedText || message.message_text}
-          </Text>
-        )}
-        <Text style={styles.timestamp}>
-          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-        </Text>
+      />
+      <View style={styles.messageWrapper}>
+        <Pressable
+          onLongPress={handleLongPress}
+          style={[styles.messageBubble, styles.otherUserBubble, styles.shadowMd]}
+        >
+          <Text style={styles.usernameBold}>{user?.email?.split('@')[0] || 'Anonymous'}</Text>
+          {isTranslating ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} style={styles.translatingIndicator} />
+          ) : (
+            <Text style={styles.messageText}>
+              {translatedText || message.message_text}
+            </Text>
+          )}
+          <View style={styles.messageFooter}>
+            <Text style={styles.timestamp}>
+              {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+            </Text>
+            <TouchableOpacity
+              style={styles.reactionButton}
+              onPress={() => setShowEmojiPicker(true)}
+            >
+              <MaterialCommunityIcons
+                name="emoticon-outline"
+                size={16}
+                color={theme.colors.text.secondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+
+        {renderReactions()}
       </View>
+
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelect={handleAddReaction}
+      />
     </View>
   );
 };
@@ -293,7 +484,30 @@ export default function ConnectScreen() {
         return;
       }
 
-      setMessages(messageData || []);
+      // Fetch reactions for all messages
+      const { data: reactionsData, error: reactionsError } = await supabase
+        .from('reactions')
+        .select('*')
+        .in('message_id', messageData.map(m => m.id));
+
+      if (reactionsError) throw reactionsError;
+
+      // Group reactions by message
+      const reactionsByMessage = reactionsData.reduce((acc, reaction) => {
+        if (!acc[reaction.message_id]) {
+          acc[reaction.message_id] = [];
+        }
+        acc[reaction.message_id].push(reaction);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Add reactions to messages
+      const messagesWithReactions = messageData.map(message => ({
+        ...message,
+        reactions: reactionsByMessage[message.id] || []
+      }));
+
+      setMessages(messagesWithReactions);
 
       // Fetch user data for avatars/names
       const userIds = [...new Set((messageData || []).map(m => m.user_id))];
@@ -851,5 +1065,53 @@ const styles = StyleSheet.create({
   },
   translatingIndicator: {
     marginVertical: theme.spacing.xs,
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
+  },
+  reactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  ownReaction: {
+    backgroundColor: '#E5E7EB',
+  },
+  reactionEmoji: {
+    fontSize: theme.typography.fontSize.sm,
+  },
+  reactionCount: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.text.secondary,
+    marginLeft: theme.spacing.xs,
+  },
+  messageWrapper: {
+    flex: 1,
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: theme.spacing.xs,
+    gap: theme.spacing.xs,
+  },
+  reactionButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#000',
   },
 }); 

@@ -255,11 +255,32 @@ export default function QuizScreen() {
 
     // Validate postal code format
     if (currentQuestion === 11) { // Index 11 is the postal code question
-      // Allow letters, numbers, spaces, and hyphens for international postal codes
-      const postalCodeRegex = /^[A-Za-z0-9\s\-]{3,10}$/;
-      if (!postalCodeRegex.test(textInput.trim())) {
-        setError('Please enter a valid postal code (3-10 characters, letters, numbers, spaces, or hyphens)');
+      const postalCode = textInput.trim();
+      
+      // Check if it's a US ZIP code (5 digits)
+      const usZipRegex = /^\d{5}$/;
+      // Check if it's a Canadian postal code (A1A 1A1 format)
+      const canadaPostalRegex = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/;
+      // Check if it's a UK postcode (various formats)
+      const ukPostalRegex = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
+      // Check if it's a general international postal code (3-10 chars, alphanumeric with spaces/hyphens)
+      const internationalPostalRegex = /^[A-Za-z0-9\s\-]{3,10}$/;
+
+      if (!usZipRegex.test(postalCode) && 
+          !canadaPostalRegex.test(postalCode) && 
+          !ukPostalRegex.test(postalCode) && 
+          !internationalPostalRegex.test(postalCode)) {
+        setError('Please enter a valid postal code. Examples:\n• US: 12345\n• Canada: A1A 1A1\n• UK: SW1A 1AA\n• International: 3-10 characters');
         return;
+      }
+
+      // If it's a US ZIP code, ensure it's a valid range (00001-99950)
+      if (usZipRegex.test(postalCode)) {
+        const zipNum = parseInt(postalCode);
+        if (zipNum < 1 || zipNum > 99950) {
+          setError('Please enter a valid US ZIP code (00001-99950)');
+          return;
+        }
       }
     }
 
@@ -269,7 +290,10 @@ export default function QuizScreen() {
   const handleTextChange = (text: string) => {
     // Only modify text for postal code field
     if (currentQuestion === 11) {
-      setTextInput(text.replace(/[^A-Za-z0-9\s\-]/g, ''));
+      // Remove any characters that aren't letters, numbers, spaces, or hyphens
+      const cleanedText = text.replace(/[^A-Za-z0-9\s\-]/g, '');
+      // Convert to uppercase for consistency
+      setTextInput(cleanedText.toUpperCase());
     } else {
       // For all other fields, preserve the exact text as entered
       setTextInput(text);

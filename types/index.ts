@@ -69,10 +69,19 @@ export interface Submission {
   created_at: string;
 }
 
+export interface Reaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   group_id: string;
   user_id: string;
   message_text: string;
   created_at: string;
+  reactions?: Reaction[];
 }

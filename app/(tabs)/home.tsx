@@ -32,6 +32,7 @@ import { useAuth } from '../../lib/auth';
 import MapView, { Marker } from 'react-native-maps';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { updateGroupStreak } from '../../lib/groupStreak';
 
 const { width } = Dimensions.get('window');
 
@@ -214,6 +215,8 @@ export default function Dashboard() {
         return;
       } else {
         console.log('Enough members submitted, keeping group');
+        // Update the streak count
+        await updateGroupStreak(groupData.id);
       }
     } else {
       console.log('Time not up yet');
@@ -356,69 +359,47 @@ export default function Dashboard() {
       if (membersError) {
         console.error('Error fetching group members:', membersError);
       } else {
-        // Check if we need to reset submission status for any users
-        const now = new Date();
-        const midnight = new Date(now);
-        midnight.setHours(0, 0, 0, 0);
+        // Fetch submissions for the current prompt
+        const { data: currentSubmissions, error: submissionsError } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('group_id', groupData.id)
+          .eq('prompt_id', groupData.current_prompt_id);
 
-        const usersToReset = groupMembers?.filter(member => {
-          if (!member.last_submission_date) return false;
-          const lastSubmission = new Date(member.last_submission_date);
-          return lastSubmission < midnight;
-        });
+        if (submissionsError) {
+          console.error('Error fetching submissions:', submissionsError);
+        } else {
+          // Update member submission status based on current prompt submissions
+          const updatedMembers = groupMembers.map(member => ({
+            ...member,
+            submitted: currentSubmissions?.some(sub => sub.user_id === member.id) || false
+          }));
 
-        if (usersToReset && usersToReset.length > 0) {
-          console.log('Resetting submission status for users:', usersToReset.map(u => u.id));
-          const { error: resetError } = await supabase
-            .from('users')
-            .update({ submitted: false })
-            .in('id', usersToReset.map(u => u.id));
-        
-          if (resetError) {
-            console.error('Error resetting submission status:', resetError);
-          } else {
-            // Update the local state with reset users
-            groupMembers.forEach(member => {
-              if (usersToReset.some(u => u.id === member.id)) {
-                member.submitted = false;
-              }
-            });
-          }
+          console.log('Updated members with submission status:', updatedMembers);
+          setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
         }
+      }
 
-        console.log('Group members:', groupMembers);
-        setGroup(prev => prev ? { ...prev, members: groupMembers } : null);
-        
-        // Get coordinates for each member's postal code
-        const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
-        
-        for (const member of groupMembers || []) {
-          try {
-            console.log('Processing member:', member.email, 'Location:', member.location);
-            
-            if (member.location) {
-              const coords = await getCoordinatesFromPostalCode(member.location);
-              if (coords) {
-                locations[member.id] = {
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                  name: member.email?.split('@')[0] || 'Anonymous',
-                  country: coords.country
-                };
-                console.log('Added location for member:', member.email, locations[member.id]);
-              } else {
-                console.log('No coordinates found for member:', member.email);
-                // Default location if geocoding fails
-                locations[member.id] = {
-                  latitude: 0,
-                  longitude: 0,
-                  name: member.email?.split('@')[0] || 'Anonymous',
-                  country: 'Location not set'
-                };
-              }
+      // Get coordinates for each member's postal code
+      const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
+      
+      for (const member of groupMembers || []) {
+        try {
+          console.log('Processing member:', member.email, 'Location:', member.location);
+          
+          if (member.location) {
+            const coords = await getCoordinatesFromPostalCode(member.location);
+            if (coords) {
+              locations[member.id] = {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                name: member.email?.split('@')[0] || 'Anonymous',
+                country: coords.country
+              };
+              console.log('Added location for member:', member.email, locations[member.id]);
             } else {
-              console.log('No location set for member:', member.email);
-              // Default location for users without a postal code
+              console.log('No coordinates found for member:', member.email);
+              // Default location if geocoding fails
               locations[member.id] = {
                 latitude: 0,
                 longitude: 0,
@@ -426,9 +407,9 @@ export default function Dashboard() {
                 country: 'Location not set'
               };
             }
-          } catch (error) {
-            console.error(`Error getting coordinates for user ${member.id}:`, error);
-            // Add user with default location if there's an error
+          } else {
+            console.log('No location set for member:', member.email);
+            // Default location for users without a postal code
             locations[member.id] = {
               latitude: 0,
               longitude: 0,
@@ -436,51 +417,28 @@ export default function Dashboard() {
               country: 'Location not set'
             };
           }
-        }
-        
-        console.log('Final locations object:', locations);
-        setUserLocations(locations);
-      }
-        
-      // Fetch submissions for the current prompt
-      if (groupData.current_prompt_id) {
-        console.log('Fetching submissions for prompt:', groupData.current_prompt_id);
-          const { data: submissionsData, error: submissionsError } = await supabase
-            .from('submissions')
-            .select('*')
-          .eq('prompt_id', groupData.current_prompt_id)
-          .eq('group_id', groupData.id)
-            .order('created_at', { ascending: true });
-          
-        if (submissionsError) {
-          console.error('Error fetching submissions:', submissionsError);
-          throw submissionsError;
-        }
-          
-        console.log('Successfully fetched submissions:', submissionsData?.length || 0);
-          setSubmissions(submissionsData || []);
-        }
-
-      // Update user's current_group_id if it's not set
-      if (!existingUser.current_group_id && groupData) {
-        console.log('Updating user with current_group_id:', groupData.id);
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ current_group_id: groupData.id })
-          .eq('id', user.id);
-
-        if (updateError) {
-          console.error('Error updating user current_group_id:', updateError);
+        } catch (error) {
+          console.error(`Error getting coordinates for user ${member.id}:`, error);
+          // Add user with default location if there's an error
+          locations[member.id] = {
+            latitude: 0,
+            longitude: 0,
+            name: member.email?.split('@')[0] || 'Anonymous',
+            country: 'Location not set'
+          };
         }
       }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      
+      console.log('Final locations object:', locations);
+      setUserLocations(locations);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
       setError('Failed to load data. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
     fetchData();
   }, [user]); // Only fetch data when user changes
@@ -630,6 +588,16 @@ export default function Dashboard() {
       
       console.log('Response submitted successfully');
       setHasSubmitted(true);
+      
+      // Update the local group state to reflect the submission
+      if (group.members) {
+        const updatedMembers = group.members.map(member => 
+          member.id === user.id 
+            ? { ...member, submitted: true }
+            : member
+        );
+        setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
+      }
       
     } catch (error) {
       console.error('Error submitting response:', error);
