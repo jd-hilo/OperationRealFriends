@@ -29,7 +29,6 @@ import { supabase } from '../../lib/supabase';
 import { Group, Prompt, Submission, User } from '../../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
-import { refreshPromptForTestGroup } from '../../lib/prompts';
 import MapView, { Marker } from 'react-native-maps';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -640,19 +639,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleRefreshPrompt = async () => {
-    try {
-      setLoading(true);
-      await refreshPromptForTestGroup();
-      await fetchData(); // Refresh the data to show new prompt
-      Alert.alert('Success', 'Prompt has been refreshed!');
-    } catch (error) {
-      console.error('Error refreshing prompt:', error);
-      Alert.alert('Error', 'Failed to refresh prompt. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
   const handleNotifyMe = async () => {
     try {
       console.log('=== Starting handleNotifyMe ===');
@@ -793,15 +779,6 @@ export default function Dashboard() {
           >
             <RefreshCw size={24} color={theme.colors.text.secondary} />
           </TouchableOpacity>
-
-          {group?.id === 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' && (
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={handleRefreshPrompt}
-            >
-              <RotateCw size={24} color={theme.colors.text.secondary} />
-            </TouchableOpacity>
-          )}
           
           <TouchableOpacity 
             style={styles.signOutButton}
