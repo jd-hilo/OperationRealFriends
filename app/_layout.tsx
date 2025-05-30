@@ -13,7 +13,6 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider, useAuth } from "../lib/auth";
 import * as Notifications from "expo-notifications";
-import { registerForPushNotificationsAsync } from "lib/notifications";
 
 // Configure how notifications appear when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -34,7 +33,6 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (loading) return;
-    registerForPushNotificationsAsync().then((t) => console.log("token :", t));
 
     const inAuthGroup = segments[0] === "(auth)";
 
