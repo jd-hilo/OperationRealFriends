@@ -9,6 +9,7 @@ import {
   StyleProp,
   View
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../constants/theme';
 
 interface ButtonProps {
@@ -56,6 +57,39 @@ const Button: React.FC<ButtonProps> = ({
     }
   };
 
+  if (variant === 'primary') {
+    return (
+      <TouchableOpacity
+        style={[
+          styles.gradientButton,
+          disabled && styles.gradientButtonDisabled,
+          style,
+        ]}
+        onPress={onPress}
+        disabled={disabled || loading}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+          locations={[0, 0.5192, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientBackground}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <View style={styles.buttonContent}>
+              {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+              <Text style={[styles.textPrimary, textStyle]}>{title}</Text>
+              {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+            </View>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[
@@ -100,6 +134,30 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  gradientButton: {
+    height: 62,
+    borderRadius: 51,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 25.1,
+    elevation: 6,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    minWidth: 320,
+  },
+  gradientButtonDisabled: {
+    opacity: 0.24,
+  },
+  gradientBackground: {
+    flex: 1,
+    paddingHorizontal: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 62,
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -126,8 +184,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CA3AF',
   },
   textPrimary: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontSize: 20,
     color: '#FFFFFF',
     fontWeight: '700',
   },

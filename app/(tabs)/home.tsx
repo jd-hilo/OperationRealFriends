@@ -33,6 +33,11 @@ import MapView, { Marker } from 'react-native-maps';
 import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { updateGroupStreak } from '../../lib/groupStreak';
+import GroupCard from '../../components/GroupCard';
+import GroupMap from '../../components/GroupMap';
+import PromptCard from '../../components/PromptCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -149,6 +154,7 @@ const getCoordinatesFromPostalCode = async (postalCode: string) => {
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
   const [group, setGroup] = useState<Group | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<Prompt | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -163,6 +169,9 @@ export default function Dashboard() {
   const [promptDueDate, setPromptDueDate] = useState<Date | null>(null);
   const hasRefreshedRef = useRef(false);
   const [userLocations, setUserLocations] = useState<{[key: string]: {latitude: number, longitude: number, name: string, country: string}}>({});
+  const [scrollY] = useState(new Animated.Value(0));
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [headerVisible, setHeaderVisible] = useState(true);
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -658,6 +667,31 @@ export default function Dashboard() {
     }
   };
 
+  const handleScroll = (event: any) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const scrollDiff = currentScrollY - lastScrollY;
+    
+    if (scrollDiff > 5 && headerVisible && currentScrollY > 50) {
+      // Scrolling down - hide header
+      setHeaderVisible(false);
+      Animated.timing(scrollY, {
+        toValue: -200,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else if (scrollDiff < -5 && !headerVisible) {
+      // Scrolling up - show header
+      setHeaderVisible(true);
+      Animated.timing(scrollY, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+    
+    setLastScrollY(currentScrollY);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -729,200 +763,101 @@ export default function Dashboard() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Your Crew</Text>
-        
-        <View style={styles.headerRight}>
-        <View style={styles.streakContainer}>
-          <Award size={24} color={theme.colors.primary} />
-          <Text style={styles.streakText}>
-              {group?.streak_count ?? 0} day streak
-          </Text>
+    <LinearGradient
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.container}
+    >
+      <Animated.View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        width: '100%', 
+        paddingLeft: 5, 
+        paddingRight: 20, 
+        paddingTop: insets.top + 6,
+        paddingBottom: 8,
+        backgroundColor: 'transparent', 
+        shadowColor: 'transparent', 
+        shadowOpacity: 0, 
+        elevation: 0,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        transform: [{ translateY: scrollY }]
+      }}>
+        <Image source={require('../../assets/logo.png')} style={{ width: 180, height: 90, resizeMode: 'contain', marginLeft: -10 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ 
+            width: 48, 
+            height: 48, 
+            borderRadius: 24, 
+            backgroundColor: '#E0E7FF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 4
+          }}>
+            <Text style={{ fontWeight: '700', fontSize: 16, color: '#222' }}>{group?.streak_count ?? 0}<Text style={{ fontSize: 18 }}>🔥</Text></Text>
           </View>
-          
           <TouchableOpacity 
-            style={styles.refreshButton}
-            onPress={fetchData}
+            style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden', borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.8}
           >
-            <RefreshCw size={24} color={theme.colors.text.secondary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={handleSignOut}
-          >
-            <LogOut size={24} color={theme.colors.text.secondary} />
+            <Image 
+              source={user?.avatar_url ? { uri: user.avatar_url } : { uri: 'https://i.pravatar.cc/150?img=1' }}
+              style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+            />
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
       
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 100 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Meet Your Group</Text>
-          <View style={styles.membersContainer}>
-            <View style={styles.membersList}>
-              {group?.members?.map((member) => (
-                <View key={member.id} style={styles.memberItem}>
-                  <Image
-                    source={{ uri: member.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
-                    style={styles.memberAvatar}
-                  />
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>
-                      {member.preferred_name || member.email?.split('@')[0] || 'Anonymous'}
-                    </Text>
-                    <Text style={[
-                      styles.memberStatus,
-                      member.submitted ? styles.memberStatusSubmitted : styles.memberStatusPending
-                    ]}>
-                      {member.submitted ? 'Checked in' : 'Not checked in'}
-                    </Text>
-                  </View>
-                  {member.submitted && (
-                    <CheckCircle2 size={20} color={theme.colors.primary} />
-                  )}
-                </View>
-              ))}
-            </View>
-            <Text style={styles.membersStats}>
-              {group?.members?.filter(m => m.submitted).length || 0}/{group?.members?.length || 0} checked in today
-            </Text>
-          </View>
+          <GroupCard
+            name={group?.name || 'Group Name'}
+            subdescription={'A pack that tends to pick bold answers 💥'}
+            members={group?.members || []}
+            promptCount={group?.prompts?.length || 0}
+            mapComponent={<GroupMap userLocations={userLocations} />}
+          />
         </View>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Next Check-in</Text>
-          <Card style={styles.timerCard}>
-            <View style={styles.timerContent}>
-              <Clock size={24} color={theme.colors.primary} />
-              <Text style={[
-                styles.timerText,
-                timeLeft === 'Next prompt coming soon!' && styles.timerTextExpired
-              ]}>
-                {timeLeft || <LoadingSpinner />}
-              </Text>
-            </View>
-          </Card>
+          <PromptCard
+            promptType={currentPrompt?.prompt_type === 'photo' ? 'photo' : 'text'}
+            date={(() => {
+              const d = currentPrompt?.created_at ? new Date(currentPrompt.created_at) : new Date();
+              return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+            })()}
+            prompt={typeof group?.current_prompt === 'string' ? group.current_prompt : currentPrompt?.content || ''}
+            timeLeft={timeLeft.split(' ')[0] || ''}
+            onRespond={() => {
+              if (!group) return handleJoinGroup();
+              router.push('/(tabs)/prompt');
+            }}
+          />
         </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Prompt</Text>
-          <Card style={styles.promptCard}>
-            <View style={styles.promptHeader}>
-          <Text style={styles.promptText}>
-                {typeof group?.current_prompt === 'string' ? group.current_prompt : 
-                 currentPrompt?.content || <LoadingSpinner />}
-              </Text>
-              {currentPrompt?.prompt_type && (
-                <View style={styles.promptTypeContainer}>
-                  {currentPrompt.prompt_type === 'audio' && <Mic size={20} color={theme.colors.primary} />}
-                  {currentPrompt.prompt_type === 'photo' && <Camera size={20} color={theme.colors.primary} />}
-                  {currentPrompt.prompt_type === 'text' && <Type size={20} color={theme.colors.primary} />}
-                  <Text style={styles.promptTypeText}>
-                    {currentPrompt.prompt_type.charAt(0).toUpperCase() + currentPrompt.prompt_type.slice(1)}
-          </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.promptActions}>
-              {!group ? (
-                <TouchableOpacity 
-                  style={[styles.promptButton, styles.joinButton]}
-                  onPress={handleJoinGroup}
-                  disabled={isJoining}
-                >
-                  <Text style={styles.promptButtonText}>
-                    {isJoining ? 'Joining...' : 'Join Group'}
-            </Text>
-          </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={styles.promptButton}
-                  onPress={() => router.push('/(tabs)/prompt')}
-              >
-                <Text style={styles.promptButtonText}>
-                  {hasSubmitted ? 'View Responses' : 'Answer Prompt'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            </View>
-          </Card>
-        </View>
-
-        {/* Location Section */}
-        {group && group.members && group.members.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Group Locations</Text>
-            <Card style={styles.mapCard}>
-              <View style={styles.mapContainer}>
-                <MapView
-                  style={styles.map}
-                  initialRegion={{
-                    latitude: 37.7749,
-                    longitude: -122.4194,
-                    latitudeDelta: 180,
-                    longitudeDelta: 360,
-                  }}
-                  showsUserLocation={false}
-                  showsMyLocationButton={false}
-                  toolbarEnabled={false}
-                  zoomEnabled={false}
-                  scrollEnabled={true}
-                  rotateEnabled={false}
-                  pitchEnabled={false}
-                >
-                  {Object.entries(userLocations).map(([userId, location]) => (
-                    <Marker
-                      key={userId}
-                      coordinate={{
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                      }}
-                      title={location.name}
-                      description={location.country === 'Location not set' ? 'Location not set' : `From ${location.country}`}
-                    >
-                      <View style={[
-                        styles.customMarker,
-                        location.country === 'Location not set' && styles.defaultMarker
-                      ]}>
-                        <View style={[
-                          styles.markerInner,
-                          location.country === 'Location not set' && styles.defaultMarkerInner
-                        ]}>
-                          <MapPin size={16} color="#FFFFFF" />
-                        </View>
-                      </View>
-                    </Marker>
-                  ))}
-                </MapView>
-              </View>
-              <View style={styles.locationInfo}>
-                <View style={styles.locationHeader}>
-                  <MapPin size={20} color={theme.colors.primary} />
-                  <Text style={styles.locationText}>
-                    {Object.keys(userLocations).length} members in {new Set(Object.values(userLocations).map(loc => loc.country)).size} different countries
-                  </Text>
-                </View>
-                <Text style={styles.locationSubtext}>
-                  See where your group members are checking in from
-                </Text>
-              </View>
-            </Card>
-          </View>
-        )}
+        <View style={{ height: 300 }} />
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // Off-white background
+    backgroundColor: '#FEFEFF',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -986,7 +921,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   section: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
@@ -1340,5 +1275,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontWeight: '600',
     paddingHorizontal: theme.spacing.xl,
+  },
+  currentUserText: {
+    color: '#6366F1',
+    fontWeight: '700',
+    fontSize: theme.typography.fontSize.md + 1,
   },
 });

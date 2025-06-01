@@ -12,7 +12,7 @@ import {
   Image
 } from 'react-native';
 import { format } from 'date-fns';
-import { CheckCircle2, Lightbulb, Mic, Camera, Type } from 'lucide-react-native';
+import { CheckCircle2, Lightbulb } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
@@ -20,6 +20,8 @@ import { supabase } from '../../lib/supabase';
 import { Prompt, Submission, User, Group } from '../../types';
 import { useAuth } from '../../lib/auth';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface SubmissionCardProps {
   submission: Submission;
@@ -29,7 +31,7 @@ interface SubmissionCardProps {
 
 const SubmissionCard: React.FC<SubmissionCardProps> = ({ submission, user, isCurrentUser }) => {
   return (
-    <Card style={styles.submissionCard}>
+    <View style={styles.submissionCard}>
       <View style={styles.submissionHeader}>
         <Image
           source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
@@ -46,12 +48,13 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({ submission, user, isCur
         )}
       </View>
       <Text style={styles.submissionText}>{submission.response_text}</Text>
-    </Card>
+    </View>
   );
 };
 
 export default function PromptScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -60,6 +63,8 @@ export default function PromptScreen() {
   const [characterCount, setCharacterCount] = useState(0);
   const [group, setGroup] = useState<Group | null>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [promptDueDate, setPromptDueDate] = useState<Date | null>(null);
   const MAX_CHARS = 500;
 
   useEffect(() => {
@@ -108,6 +113,28 @@ export default function PromptScreen() {
         console.log('Group data:', groupData);
         setGroup(groupData);
         setPrompt(groupData.prompts);
+        
+        // Set up timer if group has next_prompt_due
+        if (groupData.next_prompt_due) {
+          const nextPromptDue = new Date(groupData.next_prompt_due);
+          setPromptDueDate(nextPromptDue);
+          
+          console.log('Next prompt due:', groupData.next_prompt_due);
+          console.log('Parsed date:', nextPromptDue);
+          
+          const now = new Date();
+          console.log('Current time:', now);
+          if (now > nextPromptDue) {
+            console.log('Timer expired, setting to 0');
+            setTimeLeft('0');
+          } else {
+            const hours = Math.floor((nextPromptDue.getTime() - now.getTime()) / (1000 * 60 * 60));
+            console.log('Hours remaining:', hours);
+            setTimeLeft(hours.toString());
+          }
+        } else {
+          console.log('No next_prompt_due found in group data');
+        }
         
         // Check if user has already submitted
         const { data: userSubmission, error: submissionError } = await supabase
@@ -237,6 +264,39 @@ export default function PromptScreen() {
     fetchPromptAndSubmissions();
   }, [user]);
 
+  // Timer update effect
+  useEffect(() => {
+    if (!promptDueDate) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      if (now > promptDueDate) {
+        console.log('Timer update: expired, setting to 0');
+        setTimeLeft('0');
+        return true; // Return true to indicate timer should stop
+      } else {
+        const hours = Math.floor((promptDueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+        console.log('Timer update: hours remaining:', hours);
+        setTimeLeft(hours.toString());
+        return false; // Return false to indicate timer should continue
+      }
+    };
+
+    // Initial update
+    const shouldStop = updateTimer();
+    if (shouldStop) return;
+
+    // Set up interval for updates
+    const timer = setInterval(() => {
+      const shouldStop = updateTimer();
+      if (shouldStop) {
+        clearInterval(timer);
+      }
+    }, 1000 * 60); // Update every minute for hours
+
+    return () => clearInterval(timer);
+  }, [promptDueDate]);
+
   const handleSubmit = async () => {
     if (!response.trim() || !user || !group || !prompt) {
       Alert.alert('Error', 'Please enter a response');
@@ -322,221 +382,296 @@ export default function PromptScreen() {
     }
   };
 
-  const renderPromptTypeIcon = () => {
-    switch (prompt?.prompt_type) {
-      case 'audio':
-        return <Mic size={24} color={theme.colors.primary} />;
-      case 'photo':
-        return <Camera size={24} color={theme.colors.primary} />;
-      default:
-        return <Type size={24} color={theme.colors.primary} />;
-    }
-  };
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    <LinearGradient
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.container, { paddingTop: insets.top }]}
     >
-      <ScrollView style={styles.scrollView}>
-      <View style={styles.promptContainer}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView style={styles.scrollView}>
+        <View style={styles.promptContainer}>
           <View style={styles.promptHeader}>
-        <Text style={styles.promptTitle}>Today's Prompt</Text>
-            {renderPromptTypeIcon()}
-          </View>
-          <Text style={styles.promptText}>
-            {prompt?.content || <LoadingSpinner />}
-          </Text>
-      </View>
-
-      <View style={styles.inputContainer}>
-          {!hasSubmitted ? (
-          <>
-            <TextInput
-              style={styles.input}
-              multiline
-              placeholder="Type your response here..."
-              placeholderTextColor={theme.colors.text.tertiary}
-              value={response}
-              onChangeText={handleTextChange}
-            />
-            <View style={styles.characterCountContainer}>
-              <Text style={styles.characterCount}>
-                {characterCount}/{MAX_CHARS}
-              </Text>
-            </View>
-            <Button
-              title="Submit Response"
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={response.trim().length === 0 || loading}
-            />
-          </>
-          ) : (
-            <Card style={styles.submissionCard}>
-              <View style={styles.submissionHeader}>
-                <Image
-                  source={{ uri: users[user?.id || '']?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
-                  style={styles.avatar}
+            <View style={styles.leftSection}>
+              <View style={styles.dateBox}>
+                <Text style={styles.dateDay}>
+                  {prompt?.created_at ? new Date(prompt.created_at).toLocaleDateString('en-US', { day: '2-digit' }) : new Date().toLocaleDateString('en-US', { day: '2-digit' })}
+                </Text>
+                <Text style={styles.dateMonth}>
+                  {prompt?.created_at ? new Date(prompt.created_at).toLocaleDateString('en-US', { month: 'short' }) : new Date().toLocaleDateString('en-US', { month: 'short' })}
+                </Text>
+                <LinearGradient
+                  colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.dateUnderline}
                 />
-                <View style={styles.submissionInfo}>
-                  <Text style={styles.submissionUsername}>{users[user?.id || '']?.email || 'You'}</Text>
-                  <Text style={styles.submissionTime}>
-                    {format(new Date(), 'MMM d, h:mm a')}
-                  </Text>
-                </View>
-                <CheckCircle2 size={20} color={theme.colors.primary} />
               </View>
-              <Text style={styles.submissionText}>{response}</Text>
-            </Card>
-        )}
-      </View>
+            </View>
+            <View style={styles.timerCircle}>
+              <Text style={styles.timerText}>{timeLeft || '24'}</Text>
+              <Text style={styles.timerLabel}>Hours</Text>
+            </View>
+          </View>
+          <View style={styles.promptSection}>
+            <Text style={styles.promptTitle}>Today's prompt</Text>
+            <Text style={styles.promptText}>
+              {prompt?.content || <LoadingSpinner />}
+            </Text>
+          </View>
+        </View>
 
-      <View style={styles.responsesContainer}>
-        <Text style={styles.responsesTitle}>Group Responses</Text>
-          {submissions.length === 0 ? (
-            <Text style={styles.noResponsesText}>No responses yet. Be the first to share!</Text>
-          ) : (
-            submissions.map((submission) => (
-          <SubmissionCard
-            key={submission.id}
-            submission={submission}
-            user={users[submission.user_id]}
-                isCurrentUser={submission.user_id === user?.id}
-          />
-            ))
+        <View style={styles.inputContainer}>
+            {!hasSubmitted ? (
+            <>
+              <TextInput
+                style={styles.input}
+                multiline
+                placeholder="Type your response here..."
+                placeholderTextColor="#999"
+                value={response}
+                onChangeText={handleTextChange}
+              />
+              <View style={styles.characterCountContainer}>
+                <Text style={styles.characterCount}>
+                  {characterCount}/{MAX_CHARS}
+                </Text>
+              </View>
+              <Button
+                title="Submit Response"
+                onPress={handleSubmit}
+                loading={loading}
+                disabled={response.trim().length === 0 || loading}
+              />
+            </>
+            ) : (
+              <View style={styles.submissionCard}>
+                <View style={styles.submissionHeader}>
+                  <Image
+                    source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=1` }}
+                    style={styles.avatar}
+                  />
+                  <View style={styles.submissionInfo}>
+                    <Text style={styles.submissionUsername}>{user?.preferred_name || user?.email?.split('@')[0] || 'You'}</Text>
+                    <Text style={styles.submissionTime}>
+                      {format(new Date(), 'MMM d, h:mm a')}
+                    </Text>
+                  </View>
+                  <CheckCircle2 size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.submissionText}>{response}</Text>
+              </View>
           )}
-      </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </View>
+
+        <View style={styles.responsesContainer}>
+          <Text style={styles.responsesTitle}>Group Responses</Text>
+            {submissions.length === 0 ? (
+              <Text style={styles.noResponsesText}>No responses yet. Be the first to share!</Text>
+            ) : (
+              submissions.map((submission) => (
+            <SubmissionCard
+              key={submission.id}
+              submission={submission}
+              user={users[submission.user_id]}
+                  isCurrentUser={submission.user_id === user?.id}
+            />
+              ))
+            )}
+        </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // Off-white background
   },
   scrollView: {
     flex: 1,
   },
   promptContainer: {
-    padding: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
+    padding: 30,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
+    margin: 20,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   promptHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateBox: {
+    marginRight: 12,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+  },
+  dateDay: {
+    fontSize: 16,
+    color: '#222',
+    fontWeight: '700',
+  },
+  dateMonth: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  dateUnderline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2,
+  },
+  timerCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 2,
+    borderColor: '#E0E7FF',
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  timerText: {
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#222',
+    marginTop: 2,
+  },
+  timerLabel: {
+    fontSize: 12,
+    color: '#6366F1',
+    fontWeight: '600',
+    marginTop: -2,
+  },
+  promptSection: {
+    marginBottom: 20,
   },
   promptTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
+    fontSize: 24,
+    color: '#222',
     fontWeight: '700',
   },
   promptText: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
+    fontSize: 16,
+    color: '#222',
     lineHeight: 24,
     fontWeight: '500',
   },
   inputContainer: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
+    padding: 20,
+    paddingTop: 30,
+    fontSize: 16,
+    color: '#222',
     minHeight: 150,
     textAlignVertical: 'top',
-    borderWidth: 2,
-    borderColor: '#000',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
     fontWeight: '500',
   },
   characterCountContainer: {
     alignItems: 'flex-end',
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    marginTop: 12,
+    marginBottom: 20,
   },
   characterCount: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    fontSize: 14,
+    color: '#666',
     fontWeight: '600',
   },
   responsesContainer: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   responsesTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.md,
+    fontSize: 24,
+    color: '#222',
+    marginBottom: 20,
     fontWeight: '700',
   },
   submissionCard: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   submissionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: theme.spacing.sm,
-    borderWidth: 2,
-    borderColor: '#000',
+    marginRight: 12,
   },
   submissionInfo: {
     flex: 1,
   },
   submissionUsername: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    fontSize: 16,
+    color: '#222',
     fontWeight: '700',
   },
   submissionTime: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    fontSize: 14,
+    color: '#666',
     fontWeight: '500',
   },
   submissionText: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    fontSize: 16,
+    color: '#222',
     lineHeight: 22,
     fontWeight: '500',
   },
   noResponsesText: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    marginTop: theme.spacing.md,
+    marginTop: 20,
     fontStyle: 'italic',
     fontWeight: '500',
+  },
+  keyboardView: {
+    flex: 1,
   },
 });

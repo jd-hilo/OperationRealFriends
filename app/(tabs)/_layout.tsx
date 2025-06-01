@@ -6,6 +6,8 @@ import { theme } from '../../constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
+import MemberStatusBar from '../../components/MemberStatusBar';
+import { GroupProvider, useGroup } from '../../lib/GroupContext';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android') {
@@ -14,10 +16,11 @@ if (Platform.OS === 'android') {
   }
 }
 
-export default function TabLayout() {
+function TabLayoutInner() {
   const { user, loading: authLoading } = useAuth();
   const [hasGroup, setHasGroup] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { group, loading: groupLoading } = useGroup();
 
   useEffect(() => {
     const checkGroupStatus = async () => {
@@ -82,6 +85,14 @@ export default function TabLayout() {
 
   return (
     <View style={styles.container}>
+      {/* MemberStatusBar: Only show if group and members exist */}
+      {group && group.members && (
+        <MemberStatusBar
+          members={group.members}
+          userId={user?.id || ''}
+          nextCheckIn={group.next_prompt_due ? new Date(group.next_prompt_due).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true, weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+        />
+      )}
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: '#007AFF',
@@ -91,18 +102,14 @@ export default function TabLayout() {
             borderTopColor: '#eee',
             backgroundColor: '#fff',
           },
-          headerStyle: {
-            backgroundColor: '#fff',
-          },
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+          headerShown: false,
         }}
       >
         <Tabs.Screen
           name="home"
           options={{
             title: 'Home',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="home" size={size} color={color} />
             ),
@@ -140,3 +147,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default function TabLayout() {
+  return (
+    <GroupProvider>
+      <TabLayoutInner />
+    </GroupProvider>
+  );
+}
