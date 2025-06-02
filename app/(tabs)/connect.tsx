@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isSameDay } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { Message, User, Submission, Prompt, Reaction } from '../../types';
@@ -75,46 +78,70 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser,
   }, [message.message_text, isCurrentUser, currentUserLanguage]);
 
   const handleAddReaction = async (emoji: string) => {
+    if (!currentUser) return;
+
+    // Trigger haptic feedback immediately
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     try {
       // Check if this emoji reaction already exists
-      const existingReaction = message.reactions?.find(r => r.emoji === emoji);
+      const existingReaction = localReactions?.find(r => r.emoji === emoji && r.user_id === currentUser.id);
       
       if (existingReaction) {
-        // If user already reacted with this emoji, remove their reaction
-        if (existingReaction.user_id === currentUser?.id) {
-          const { error } = await supabase
-            .from('reactions')
-            .delete()
-            .match({ 
-              message_id: message.id, 
-              user_id: currentUser.id,
-              emoji: emoji 
-            });
+        // Remove existing reaction immediately from local state
+        setLocalReactions(prev => 
+          prev.filter(r => !(r.emoji === emoji && r.user_id === currentUser.id))
+        );
 
-          if (error) throw error;
-        } else {
-          // Add user's reaction
-          const { error } = await supabase
-            .from('reactions')
-            .insert([{
-              message_id: message.id,
-              user_id: currentUser?.id,
-              emoji: emoji
-            }]);
+        // Remove from database
+        const { error } = await supabase
+          .from('reactions')
+          .delete()
+          .match({ 
+            message_id: message.id, 
+            user_id: currentUser.id,
+            emoji: emoji 
+          });
 
-          if (error) throw error;
+        if (error) {
+          // Restore on error
+          setLocalReactions(prev => [...prev, existingReaction]);
+          throw error;
         }
       } else {
-        // Create new reaction
-        const { error } = await supabase
+        // Create optimistic reaction
+        const optimisticReaction: Reaction = {
+          id: `temp-${Date.now()}`,
+          message_id: message.id,
+          user_id: currentUser.id,
+          emoji: emoji,
+          created_at: new Date().toISOString()
+        };
+
+        // Add reaction immediately to local state
+        setLocalReactions(prev => [...prev, optimisticReaction]);
+
+        // Add to database
+        const { data: newReaction, error } = await supabase
           .from('reactions')
           .insert([{
             message_id: message.id,
-            user_id: currentUser?.id,
+            user_id: currentUser.id,
             emoji: emoji
-          }]);
+          }])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (error) {
+          // Remove optimistic reaction on error
+          setLocalReactions(prev => prev.filter(r => r.id !== optimisticReaction.id));
+          throw error;
+        } else {
+          // Replace optimistic reaction with real one
+          setLocalReactions(prev => prev.map(r => 
+            r.id === optimisticReaction.id ? newReaction : r
+          ));
+        }
       }
     } catch (error) {
       console.error('Error handling reaction:', error);
@@ -345,7 +372,7 @@ const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, promp
   }, [prompt?.content, submission.response_text, isCurrentUser, currentUserLanguage]);
 
   return (
-    <Card style={styles.submissionPost}>
+    <View style={styles.submissionPost}>
       <View style={styles.submissionHeader}>
         <Image
           source={{ uri: user?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}` }}
@@ -368,12 +395,13 @@ const SubmissionPost: React.FC<SubmissionPostProps> = ({ submission, user, promp
           </>
         )}
       </View>
-    </Card>
+    </View>
   );
 };
 
 export default function ConnectScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
@@ -599,48 +627,97 @@ export default function ConnectScreen() {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to new messages
-    const subscription = supabase
-      .channel('messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `group_id=eq.${user.id}`
-        },
-        async (payload) => {
-          const newMessage = payload.new as Message;
-          setMessages(prev => [...prev, newMessage]);
+    const setupSubscriptions = async () => {
+      // Get the user's current group ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('current_group_id')
+        .eq('id', user.id)
+        .single();
 
-          // Fetch user data if not already cached
-          if (!users[newMessage.user_id]) {
-            const { data: userData } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', newMessage.user_id)
-              .single();
+      if (userError || !userData?.current_group_id) {
+        console.error('Error getting user group:', userError);
+        return;
+      }
 
-            if (userData) {
-              setUsers(prev => ({
-                ...prev,
-                [userData.id]: userData
-              }));
+      const groupId = userData.current_group_id;
+
+      // Subscribe to new messages
+      const messageSubscription = supabase
+        .channel('messages')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `group_id=eq.${groupId}`
+          },
+          async (payload) => {
+            const newMessage = payload.new as Message;
+            setMessages(prev => [...prev, { ...newMessage, reactions: [] }]);
+
+            // Fetch user data if not already cached
+            if (!users[newMessage.user_id]) {
+              const { data: userData } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', newMessage.user_id)
+                .single();
+
+              if (userData) {
+                setUsers(prev => ({
+                  ...prev,
+                  [userData.id]: userData
+                }));
+              }
+            }
+
+            // Scroll to bottom when new message arrives
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        )
+        .subscribe();
+
+      // Subscribe to new reactions
+      const reactionSubscription = supabase
+        .channel('reactions')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reactions'
+          },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newReaction = payload.new as Reaction;
+              setMessages(prev => prev.map(message => 
+                message.id === newReaction.message_id
+                  ? { ...message, reactions: [...(message.reactions || []), newReaction] }
+                  : message
+              ));
+            } else if (payload.eventType === 'DELETE') {
+              const deletedReaction = payload.old as Reaction;
+              setMessages(prev => prev.map(message => 
+                message.id === deletedReaction.message_id
+                  ? { ...message, reactions: (message.reactions || []).filter(r => r.id !== deletedReaction.id) }
+                  : message
+              ));
             }
           }
+        )
+        .subscribe();
 
-          // Scroll to bottom when new message arrives
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
+      return () => {
+        messageSubscription.unsubscribe();
+        reactionSubscription.unsubscribe();
+      };
     };
+
+    setupSubscriptions();
   }, [user]);
 
   // Scroll to bottom when messages change (initial load)
@@ -655,6 +732,9 @@ export default function ConnectScreen() {
   const handleSend = async () => {
     if (!message.trim() || !user) return;
 
+    const messageText = message.trim();
+    setMessage(''); // Clear input immediately
+
     try {
       // Get the user's current_group_id
       const { data: userData, error: userError } = await supabase
@@ -665,23 +745,59 @@ export default function ConnectScreen() {
 
       if (userError || !userData?.current_group_id) {
         setError('Failed to send message. Please try again.');
+        setMessage(messageText); // Restore message on error
         return;
       }
 
-      const { error } = await supabase
+      // Create optimistic message for immediate UI update
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        group_id: userData.current_group_id,
+        user_id: user.id,
+        message_text: messageText,
+        created_at: new Date().toISOString(),
+        reactions: []
+      };
+
+      // Add message to local state immediately
+      setMessages(prev => [...prev, optimisticMessage]);
+
+      // Trigger haptic feedback immediately
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Scroll to bottom immediately
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+
+      // Send to database
+      const { data: newMessage, error } = await supabase
         .from('messages')
         .insert([
           {
             group_id: userData.current_group_id,
             user_id: user.id,
-            message_text: message.trim(),
+            message_text: messageText,
             created_at: new Date().toISOString()
           }
-        ]);
+        ])
+        .select()
+        .single();
 
-      if (!error) setMessage('');
+      if (error) {
+        // Remove optimistic message and restore input on error
+        setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
+        setMessage(messageText);
+        setError('Failed to send message.');
+      } else {
+        // Replace optimistic message with real message
+        setMessages(prev => prev.map(m => 
+          m.id === optimisticMessage.id ? { ...newMessage, reactions: [] } : m
+        ));
+      }
     } catch (error) {
       setError('Failed to send message.');
+      setMessage(messageText); // Restore message on error
     }
   };
 
@@ -726,14 +842,17 @@ export default function ConnectScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={styles.gradientBackground}>
-        {/* Use a gradient background. If using expo-linear-gradient, replace with <LinearGradient ... /> */}
-      </View>
+    <LinearGradient
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
     <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={styles.keyboardView}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
       <ScrollView
         ref={scrollViewRef}
@@ -810,24 +929,23 @@ export default function ConnectScreen() {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // Off-white background
   },
   messagesContainer: {
     flex: 1,
   },
   messagesContent: {
-    padding: theme.spacing.md,
+    padding: 20,
   },
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 16,
     maxWidth: '70%',
   },
   currentUserMessage: {
@@ -840,25 +958,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: theme.spacing.sm,
-    borderWidth: 2,
-    borderColor: '#000',
+    marginRight: 12,
   },
   messageBubble: {
-    padding: theme.spacing.sm,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 16,
     maxWidth: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   currentUserBubble: {
-    backgroundColor: '#FFFFFF', // White background
+    backgroundColor: '#FAFAFA',
   },
   otherUserBubble: {
-    backgroundColor: '#FFFFFF', // Flat white
+    backgroundColor: '#FAFAFA',
   },
   username: {
     fontSize: theme.typography.fontSize.sm,
@@ -884,52 +999,49 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: theme.spacing.md,
-    backgroundColor: '#FFFFFF',
+    padding: 20,
+    backgroundColor: 'transparent',
     alignItems: 'flex-end',
   },
   input: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: theme.spacing.md,
-    marginRight: theme.spacing.sm,
-    maxHeight: 100,
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
-    borderWidth: 2,
-    borderColor: '#000',
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
+    padding: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginRight: 12,
+    minHeight: 50,
+    maxHeight: 120,
+    fontSize: 16,
+    color: '#222',
     shadowColor: '#000',
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
     textAlignVertical: 'center',
+    fontWeight: '500',
   },
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#87CEEB',
+    borderRadius: 22,
+    backgroundColor: '#3AB9F9',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#000',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   sendButtonDisabled: {
     backgroundColor: '#E5E7EB',
-    borderColor: '#9CA3AF',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'transparent',
   },
   errorText: {
     color: theme.colors.error,
@@ -939,16 +1051,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   retryButton: {
-    backgroundColor: '#87CEEB',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    backgroundColor: '#3AB9F9',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   retryButtonText: {
@@ -977,10 +1086,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginRight: theme.spacing.sm,
+    marginRight: 12,
     resizeMode: 'cover',
-    borderWidth: 2,
-    borderColor: '#000',
   },
   usernameBold: {
     fontWeight: 'bold',
@@ -990,25 +1097,15 @@ const styles = StyleSheet.create({
   },
   shadowMd: {
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
-  },
-  gradientBackground: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    backgroundColor: '#FAFAFA', // Off-white fallback
   },
   daySeparator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
+    marginVertical: 16,
+    paddingHorizontal: 16,
   },
   separatorLine: {
     flex: 1,
@@ -1016,23 +1113,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
   },
   separatorText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    fontSize: 14,
+    color: '#666',
     fontWeight: '600',
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 8,
+    backgroundColor: 'transparent',
   },
   submissionPost: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   submissionHeader: {
@@ -1077,11 +1171,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   ownReaction: {
     backgroundColor: '#E5E7EB',
@@ -1111,7 +1207,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  keyboardView: {
+    flex: 1,
   },
 }); 

@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Alert,
+  Easing,
 } from 'react-native';
 import {
   Clock,
@@ -109,7 +110,7 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
       />
       {!submitted && (
         <View style={styles.avatarOverlay}>
-                      <View style={styles.avatarOverlay}>
+          <View style={styles.avatarOverlay}>
             <Clock size={16} color="#FFFFFF" />
           </View>
         </View>
@@ -172,6 +173,7 @@ export default function Dashboard() {
   const [scrollY] = useState(new Animated.Value(0));
   const [lastScrollY, setLastScrollY] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
+  const globeAnim = useRef(new Animated.Value(0)).current;
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -692,18 +694,52 @@ export default function Dashboard() {
     setLastScrollY(currentScrollY);
   };
 
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(globeAnim, {
+        toValue: 1,
+        duration: 4000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const globeSpin = globeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <LoadingSpinner size="large" />
+      <LinearGradient
+        colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+        locations={[0, 0.4808, 0.9904]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
+      >
+        <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: globeSpin }] }]}> 
+          <Image
+            source={require('../../assets/globe.png')}
+            style={styles.queueIcon}
+            resizeMode="contain"
+          />
+        </Animated.View>
         <Text style={styles.loadingText}>Connecting you with your group around the world...</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
   if (!hasCompletedQuiz) {
     return (
-      <View style={styles.container}>
+      <LinearGradient
+        colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+        locations={[0, 0.4808, 0.9904]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.container}
+      >
         <View style={styles.quizContainer}>
           <Animated.Text 
             style={[styles.quizTitle, { opacity: fadeAnim }]}
@@ -722,43 +758,64 @@ export default function Dashboard() {
               Take a quick quiz to help us match you with the perfect group.
             </Text>
             <TouchableOpacity 
-              style={[styles.promptButton, styles.quizButton]} 
+              style={styles.quizButton} 
               onPress={() => router.push('/quiz')}
             >
-              <Text style={styles.promptButtonText}>Start Quiz</Text>
+              <LinearGradient
+                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.quizButtonText}>Start Quiz</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </LinearGradient>
     );
   }
 
   // Show queue page if user has completed quiz but isn't in a group
   if (hasCompletedQuiz && !group) {
     return (
-      <View style={styles.container}>
+      <LinearGradient
+        colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+        locations={[0, 0.4808, 0.9904]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
+      >
         <View style={styles.queueContent}>
-          <MaterialCommunityIcons
-            name="account-group"
-            size={80}
-            color="#007AFF"
-            style={styles.queueIcon}
-          />
+          <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: globeSpin }] }]}> 
+            <Image
+              source={require('../../assets/globe.png')}
+              style={styles.queueIcon}
+              resizeMode="contain"
+            />
+          </Animated.View>
           <Text style={styles.queueTitle}>Finding Your Crew</Text>
           <Text style={styles.queueSubtitle}>
             We're matching you with compatible group members based on your preferences and personality.
           </Text>
           <TouchableOpacity 
-            style={[styles.promptButton, styles.notifyButton]}
+            style={styles.queueButton}
             onPress={handleNotifyMe}
           >
-            <Text style={styles.promptButtonText}>Notify Me When Ready</Text>
+            <LinearGradient
+              colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.queueButtonText}>Notify Me When Ready</Text>
+            </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.queueHint}>
             This usually takes a few minutes. Feel free to check back later!
           </Text>
         </View>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -1064,7 +1121,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0E0E6',
   },
   quizButton: {
-    backgroundColor: '#87CEEB',
+    width: 280,
+    height: 62,
+    borderRadius: 51,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 25.1,
+    elevation: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 51,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quizButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   pinContainer: {
     position: 'absolute',
@@ -1083,26 +1166,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.xl,
-    backgroundColor: '#FAFAFA',
   },
   quizContent: {
     alignItems: 'center',
     gap: theme.spacing.lg,
     backgroundColor: '#FFFFFF',
     padding: theme.spacing.xl,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#000',
+    borderRadius: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
+    width: '90%',
+    maxWidth: 400,
   },
   quizTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: theme.typography.fontSize.xl,
-    color: theme.colors.text.primary,
+    color: '#222',
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
     fontWeight: '700',
@@ -1110,7 +1192,7 @@ const styles = StyleSheet.create({
   quizDescription: {
     fontFamily: 'Nunito-Regular',
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
+    color: '#888',
     textAlign: 'center',
     maxWidth: 300,
     lineHeight: 24,
@@ -1142,24 +1224,58 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   queueContent: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
     padding: theme.spacing.xl,
-    backgroundColor: '#FAFAFA',
+    width: '90%',
+    alignSelf: 'center',
+  },
+  queueIconWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F5F6FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   queueIcon: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#000',
+    width: 90,
+    height: 90,
+  },
+  queueButton: {
+    width: 260,
+    height: 56,
+    borderRadius: 51,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 25.1,
+    elevation: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginVertical: theme.spacing.lg,
+  },
+  queueButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   queueTitle: {
     fontFamily: 'Poppins-SemiBold',
@@ -1194,11 +1310,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
     marginTop: theme.spacing.md,
-  },
-  notifyButton: {
-    backgroundColor: '#87CEEB',
-    marginVertical: theme.spacing.lg,
-    minWidth: 200,
   },
   timerTextExpired: {
     color: theme.colors.error,
@@ -1268,13 +1379,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: theme.spacing.lg,
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
+    marginTop: 24,
+    fontSize: 20,
+    color: '#222',
     textAlign: 'center',
     fontFamily: 'Poppins-SemiBold',
-    fontWeight: '600',
-    paddingHorizontal: theme.spacing.xl,
+    fontWeight: '700',
+    paddingHorizontal: 24,
   },
   currentUserText: {
     color: '#6366F1',

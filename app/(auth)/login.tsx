@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../lib/auth';
-import { theme } from '../../constants/theme';
+import Button from '../../components/Button';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -14,114 +14,103 @@ export default function Login() {
     try {
       setError('');
       await signIn(email, password);
-      // Router will automatically redirect based on auth state
     } catch (err: any) {
       setError(err.message);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Log In</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-        <Text style={styles.link}>Don't have an account? Sign up</Text>
-      </TouchableOpacity>
+    <View style={styles.bg}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Welcome Back</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholderTextColor="#999"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholderTextColor="#999"
+        />
+        <Button
+          title="Log In"
+          onPress={handleLogin}
+        />
+        <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+          <Text style={styles.link}>Don't have an account? Sign up</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    padding: theme.spacing.xl,
+    backgroundColor: '#F7F9FE',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAFAFA', // Off-white background
+    paddingHorizontal: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    alignItems: 'center',
   },
   title: {
-    fontSize: theme.typography.fontSize.xxl,
-    fontWeight: '700',
-    marginBottom: theme.spacing.xl,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#111',
     textAlign: 'center',
-    color: theme.colors.text.primary,
-    fontFamily: 'Poppins-SemiBold',
+    marginBottom: 24,
+    letterSpacing: 1,
   },
   input: {
-    borderWidth: 2,
-    borderColor: '#000',
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    marginBottom: theme.spacing.md,
-    backgroundColor: '#FFFFFF',
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 18,
+    fontSize: 16,
+    color: '#222',
+    marginBottom: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
     fontWeight: '500',
   },
-  button: {
-    backgroundColor: '#87CEEB',
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    marginBottom: theme.spacing.md,
-    borderWidth: 2,
-    borderColor: '#000',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    textAlign: 'center',
-    fontWeight: '700',
-    fontSize: theme.typography.fontSize.md,
-    fontFamily: 'Poppins-SemiBold',
-  },
-  link: {
-    color: theme.colors.text.primary,
-    textAlign: 'center',
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: '600',
-    marginTop: theme.spacing.sm,
-  },
   error: {
     color: '#EF4444',
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: '600',
     backgroundColor: '#FEF2F2',
-    padding: theme.spacing.sm,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#EF4444',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+    width: '100%',
+  },
+  link: {
+    color: '#1877FF',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 24,
   },
 }); 

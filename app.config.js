@@ -3,7 +3,8 @@ import 'dotenv/config';
 export default {
   expo: {
     name: 'OperationRealSocial',
-    slug: 'OperationRealSocial',
+    slug: 'pact',
+    owner: 'jd-hilo',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -18,7 +19,10 @@ export default {
     ],
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.operationrealsocial.app'
+      bundleIdentifier: 'com.operationrealsocial.app',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false
+      }
     },
     android: {
       adaptiveIcon: {
@@ -30,7 +34,10 @@ export default {
       favicon: './assets/favicon.png'
     },
     extra: {
-      openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY
+      openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+      eas: {
+        projectId: "4b91b1f8-9eef-48ad-b6ba-609ba25651f4"
+      }
     }
   }
 }; 

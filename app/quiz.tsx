@@ -9,6 +9,7 @@ import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { theme } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface Question {
   id: number;
@@ -357,156 +358,199 @@ export default function QuizScreen() {
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Stack.Screen 
-        options={{
-          headerShown: true,
-          headerBackVisible: false,
-          title: 'Personality Quiz'
-        }} 
-      />
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-      </View>
-
-      <ScrollView style={styles.content}>
-        <Text style={styles.questionNumber}>
-          Question {currentQuestion + 1} of {questions.length}
-        </Text>
-        <Text style={styles.questionText}>
-          {questions[currentQuestion].text}
-        </Text>
-
-        <View style={styles.optionsContainer}>
-          {questions[currentQuestion].type === 'text' ? (
-            <View style={styles.textInputContainer}>
-              {currentQuestion === 12 ? (
-                // Language selection dropdown
-                <View style={styles.languageContainer}>
-                  {LANGUAGES.map((language, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.languageOption,
-                        textInput === language && styles.selectedLanguage
-                      ]}
-                      onPress={() => setTextInput(language)}
-                    >
-                      <Text style={[
-                        styles.languageText,
-                        textInput === language && styles.selectedLanguageText
-                      ]}>
-                        {language}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : currentQuestion === 14 ? (
-                // Profile picture upload
-                <View style={styles.profilePictureContainer}>
-                  {selectedImage ? (
-                    <Image 
-                      source={{ uri: selectedImage }} 
-                      style={styles.profilePicture}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.profilePicturePlaceholder}>
-                      <MaterialCommunityIcons 
-                        name="account" 
-                        size={48} 
-                        color={theme.colors.text.tertiary} 
-                      />
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={[
-                      styles.uploadButton,
-                      error ? styles.uploadButtonDisabled : null
-                    ]}
-                    onPress={handleUploadImage}
-                    disabled={!!error}
-                  >
-                    <Text style={[
-                      styles.uploadButtonText,
-                      error ? styles.uploadButtonTextDisabled : null
-                    ]}>
-                      {selectedImage ? 'Change Photo' : 'Upload Photo'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.uploadHint}>
-                    Tap to take a photo with your camera
-                  </Text>
-                  {error && (
-                    <Text style={styles.errorText}>{error}</Text>
-                  )}
-                </View>
-              ) : (
-                // Regular text input for other fields
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    currentQuestion === 13 && styles.bioInput
-                  ]}
-                  value={textInput}
-                  onChangeText={handleTextChange}
-                  placeholder={
-                    currentQuestion === 10 ? "Enter your preferred name" :
-                    currentQuestion === 13 ? "Enter your bio" :
-                    "Enter your postal code..."
-                  }
-                  placeholderTextColor={theme.colors.text.tertiary}
-                  onSubmitEditing={handleTextSubmit}
-                  returnKeyType="done"
-                  maxLength={currentQuestion === 11 ? 10 : undefined}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  multiline={currentQuestion === 13}
-                  textAlignVertical={currentQuestion === 13 ? "top" : "center"}
-                />
-              )}
-              <TouchableOpacity
-                style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
-                onPress={handleTextSubmit}
-                disabled={!textInput.trim()}
-              >
-                <Text style={[styles.submitButtonText, !textInput.trim() && styles.submitButtonTextDisabled]}>
-                  Submit
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            questions[currentQuestion].options?.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.optionButton,
-                  answers[currentQuestion] === option && styles.selectedOption,
-              ]}
-                onPress={() => handleAnswer(option)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                    answers[currentQuestion] === option && styles.selectedOptionText,
-                ]}
-              >
-                {option}
-              </Text>
-            </TouchableOpacity>
-            ))
-          )}
+    <LinearGradient
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <Stack.Screen 
+          options={{
+            headerShown: false,
+            headerBackVisible: false,
+            title: 'Personality Quiz',
+            headerStyle: {
+              backgroundColor: 'transparent',
+            },
+            headerShadowVisible: false,
+          }} 
+        />
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressBar, { width: `${progress}%` }]} />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+
+        <ScrollView style={styles.content}>
+          <Text style={styles.questionNumber}>
+            Question {currentQuestion + 1} of {questions.length}
+          </Text>
+          <Text style={styles.questionText}>
+            {questions[currentQuestion].text}
+          </Text>
+
+          <View style={styles.optionsContainer}>
+            {questions[currentQuestion].type === 'text' ? (
+              <View style={styles.textInputContainer}>
+                {currentQuestion === 12 ? (
+                  // Language selection dropdown
+                  <View style={styles.languageContainer}>
+                    {LANGUAGES.map((language, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.languageOption,
+                          textInput === language && styles.selectedLanguage
+                        ]}
+                        onPress={() => setTextInput(language)}
+                      >
+                        {textInput === language && (
+                          <LinearGradient
+                            colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={StyleSheet.absoluteFillObject}
+                          />
+                        )}
+                        <View style={styles.languageTextWrapper}>
+                          <Text style={textInput === language ? styles.selectedLanguageText : styles.languageText}>
+                            {language}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : currentQuestion === 14 ? (
+                  // Profile picture upload
+                  <View style={styles.profilePictureContainer}>
+                    {selectedImage ? (
+                      <Image 
+                        source={{ uri: selectedImage }} 
+                        style={styles.profilePicture}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.profilePicturePlaceholder}>
+                        <MaterialCommunityIcons 
+                          name="account" 
+                          size={48} 
+                          color="#888"
+                        />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={[
+                        styles.uploadButton,
+                        error ? styles.uploadButtonDisabled : null
+                      ]}
+                      onPress={handleUploadImage}
+                      disabled={!!error}
+                    >
+                      <LinearGradient
+                        colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.buttonGradient}
+                      >
+                        <Text style={[
+                          styles.uploadButtonText,
+                          error ? styles.uploadButtonTextDisabled : null
+                        ]}>
+                          {selectedImage ? 'Change Photo' : 'Upload Photo'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <Text style={styles.uploadHint}>
+                      Tap to take a photo with your camera
+                    </Text>
+                    {error && (
+                      <Text style={styles.errorText}>{error}</Text>
+                    )}
+                  </View>
+                ) : (
+                  // Regular text input for other fields
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      currentQuestion === 13 && styles.bioInput
+                    ]}
+                    value={textInput}
+                    onChangeText={handleTextChange}
+                    placeholder={
+                      currentQuestion === 10 ? "Enter your preferred name" :
+                      currentQuestion === 13 ? "Enter your bio" :
+                      "Enter your postal code..."
+                    }
+                    placeholderTextColor="#888"
+                    onSubmitEditing={handleTextSubmit}
+                    returnKeyType="done"
+                    maxLength={currentQuestion === 11 ? 10 : undefined}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    multiline={currentQuestion === 13}
+                    textAlignVertical={currentQuestion === 13 ? "top" : "center"}
+                  />
+                )}
+                <TouchableOpacity
+                  style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
+                  onPress={handleTextSubmit}
+                  disabled={!textInput.trim()}
+                >
+                  <LinearGradient
+                    colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.buttonGradient}
+                  >
+                    <Text style={[styles.submitButtonText, !textInput.trim() && styles.submitButtonTextDisabled]}>
+                      Submit
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              questions[currentQuestion].options?.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.optionButton,
+                    answers[currentQuestion] === option && styles.selectedOption,
+                  ]}
+                  onPress={() => handleAnswer(option)}
+                >
+                  {answers[currentQuestion] === option ? (
+                    <LinearGradient
+                      colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.optionGradient}
+                    >
+                      <Text style={styles.selectedOptionText}>
+                        {option}
+                      </Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.optionText}>
+                      {option}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // Off-white background
+  },
+  safeArea: {
+    flex: 1,
   },
   progressContainer: {
     height: 6,
@@ -522,7 +566,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#87CEEB', // Light blue gradient
+    backgroundColor: '#87CEEB',
   },
   content: {
     flex: 1,
@@ -530,14 +574,14 @@ const styles = StyleSheet.create({
   },
   questionNumber: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
+    color: '#888',
     marginBottom: theme.spacing.sm,
     fontWeight: '600',
   },
   questionText: {
     fontSize: theme.typography.fontSize.xl,
     fontWeight: '700',
-    color: theme.colors.text.primary,
+    color: '#222',
     marginBottom: theme.spacing.xl,
     lineHeight: 28,
   },
@@ -547,73 +591,104 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     padding: theme.spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    borderRadius: 32,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  optionGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedOption: {
-    borderColor: '#000',
-    backgroundColor: '#87CEEB', // Light blue gradient
+    // No border, just keep the gradient
   },
   optionText: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    color: '#222',
     fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
   },
   selectedOptionText: {
     color: '#FFFFFF',
     fontWeight: '700',
+    fontSize: theme.typography.fontSize.md,
+    textAlign: 'center',
+    width: '100%',
   },
   textInputContainer: {
     marginTop: theme.spacing.sm,
     gap: theme.spacing.md,
+    backgroundColor: '#FFF',
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    padding: theme.spacing.lg,
   },
   textInput: {
-    borderWidth: 2,
-    borderColor: '#000',
-    borderRadius: 12,
+    borderRadius: 32,
     padding: theme.spacing.md,
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    color: '#222',
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
     fontWeight: '500',
+    marginBottom: 8,
   },
   bioInput: {
     height: 120,
     textAlignVertical: 'top',
+    paddingTop: 20,
   },
   submitButton: {
-    backgroundColor: '#87CEEB',
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#000',
+    width: 280,
+    height: 62,
+    borderRadius: 51,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 25.1,
+    elevation: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 51,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#E5E7EB',
-    borderColor: '#9CA3AF',
+    opacity: 0.5,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: theme.typography.fontSize.md,
+    fontSize: 20,
     fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   submitButtonTextDisabled: {
     color: '#9CA3AF',
@@ -623,71 +698,95 @@ const styles = StyleSheet.create({
   },
   languageOption: {
     padding: theme.spacing.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    borderRadius: 32,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  languageTextWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
   },
   selectedLanguage: {
-    backgroundColor: '#87CEEB',
-    borderColor: '#000',
+    // No border, just keep the gradient
   },
   languageText: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.primary,
+    color: '#222',
     fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
   },
   selectedLanguageText: {
     color: '#FFFFFF',
     fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
+    fontSize: theme.typography.fontSize.md,
   },
   profilePictureContainer: {
     alignItems: 'center',
     gap: theme.spacing.md,
+    backgroundColor: '#FFF',
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    padding: theme.spacing.lg,
   },
   profilePicture: {
     width: 150,
     height: 150,
     borderRadius: 75,
-    borderWidth: 2,
-    borderColor: '#000',
+    backgroundColor: '#FFF',
   },
   profilePicturePlaceholder: {
     width: 150,
     height: 150,
     borderRadius: 75,
-    borderWidth: 2,
-    borderColor: '#000',
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   uploadButton: {
-    backgroundColor: '#87CEEB',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
+    width: 280,
+    height: 62,
+    borderRadius: 51,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 25.1,
+    elevation: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
   },
   uploadButtonText: {
     color: '#FFFFFF',
-    fontSize: theme.typography.fontSize.md,
+    fontSize: 20,
     fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   uploadHint: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    color: '#888',
     textAlign: 'center',
   },
   errorText: {
@@ -697,8 +796,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   uploadButtonDisabled: {
-    backgroundColor: '#E5E7EB',
-    borderColor: '#9CA3AF',
+    opacity: 0.5,
   },
   uploadButtonTextDisabled: {
     color: '#9CA3AF',

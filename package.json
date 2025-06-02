@@ -46,7 +46,9 @@
     "react-native-svg": "14.1.0",
     "react-native-uuid": "^2.0.1",
     "react-native-web": "~0.19.6",
-    "zustand": "^4.4.6"
+    "zustand": "^4.4.6",
+    "expo-haptics": "~12.8.1",
+    "expo-av": "~13.10.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

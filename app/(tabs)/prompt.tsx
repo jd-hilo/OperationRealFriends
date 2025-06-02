@@ -414,10 +414,16 @@ export default function PromptScreen() {
                 />
               </View>
             </View>
-            <View style={styles.timerCircle}>
-              <Text style={styles.timerText}>{timeLeft || '24'}</Text>
-              <Text style={styles.timerLabel}>Hours</Text>
-            </View>
+            {hasSubmitted ? (
+              <View style={[styles.timerCircle, { backgroundColor: '#E6FCEB', borderColor: '#34D399' }]}> 
+                <CheckCircle2 size={32} color="#22C55E" />
+              </View>
+            ) : (
+              <View style={styles.timerCircle}>
+                <Text style={styles.timerText}>{timeLeft || '24'}</Text>
+                <Text style={styles.timerLabel}>Hours</Text>
+              </View>
+            )}
           </View>
           <View style={styles.promptSection}>
             <Text style={styles.promptTitle}>Today's prompt</Text>
@@ -468,22 +474,6 @@ export default function PromptScreen() {
                 <Text style={styles.submissionText}>{response}</Text>
               </View>
           )}
-        </View>
-
-        <View style={styles.responsesContainer}>
-          <Text style={styles.responsesTitle}>Group Responses</Text>
-            {submissions.length === 0 ? (
-              <Text style={styles.noResponsesText}>No responses yet. Be the first to share!</Text>
-            ) : (
-              submissions.map((submission) => (
-            <SubmissionCard
-              key={submission.id}
-              submission={submission}
-              user={users[submission.user_id]}
-                  isCurrentUser={submission.user_id === user?.id}
-            />
-              ))
-            )}
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -613,16 +603,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '600',
   },
-  responsesContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  responsesTitle: {
-    fontSize: 24,
-    color: '#222',
-    marginBottom: 20,
-    fontWeight: '700',
-  },
   submissionCard: {
     marginBottom: 16,
     padding: 20,
@@ -661,14 +641,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#222',
     lineHeight: 22,
-    fontWeight: '500',
-  },
-  noResponsesText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 20,
-    fontStyle: 'italic',
     fontWeight: '500',
   },
   keyboardView: {

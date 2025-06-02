@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useSegments } from 'expo-router';
 import { LayoutAnimation, Platform, UIManager, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Home, MessageCircle, PenLine } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
@@ -21,6 +21,10 @@ function TabLayoutInner() {
   const [hasGroup, setHasGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const { group, loading: groupLoading } = useGroup();
+  const segments = useSegments();
+  
+  // Check if we're on the home tab
+  const isHomePage = segments[segments.length - 1] === 'home';
 
   useEffect(() => {
     const checkGroupStatus = async () => {
@@ -85,8 +89,8 @@ function TabLayoutInner() {
 
   return (
     <View style={styles.container}>
-      {/* MemberStatusBar: Only show if group and members exist */}
-      {group && group.members && (
+      {/* MemberStatusBar: Only show if group and members exist and we're on home page */}
+      {group && group.members && isHomePage && (
         <MemberStatusBar
           members={group.members}
           userId={user?.id || ''}
@@ -95,12 +99,21 @@ function TabLayoutInner() {
       )}
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: '#007AFF',
-          tabBarInactiveTintColor: '#999',
           tabBarStyle: {
-            borderTopWidth: 1,
-            borderTopColor: '#eee',
-            backgroundColor: '#fff',
+            height: 89,
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          tabBarShowLabel: false,
+          tabBarIconStyle: {
+            marginTop: 0,
+            marginBottom: 0,
+          },
+          tabBarItemStyle: {
+            alignItems: 'center',
+            justifyContent: 'center',
           },
           headerShown: false,
         }}
@@ -110,8 +123,18 @@ function TabLayoutInner() {
           options={{
             title: 'Home',
             headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="home" size={size} color={color} />
+            tabBarIcon: ({ focused, size }) => (
+              <View style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: focused ? '#000' : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 20,
+              }}>
+                <MaterialCommunityIcons name="home" size={20} color={focused ? '#fff' : '#000'} />
+              </View>
             ),
           }}
         />
@@ -119,8 +142,18 @@ function TabLayoutInner() {
           name="prompt"
           options={{
             title: 'Prompt',
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="lightbulb" size={size} color={color} />
+            tabBarIcon: ({ focused, size }) => (
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: focused ? '#000' : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 20,
+              }}>
+                <MaterialCommunityIcons name="lightbulb" size={24} color={focused ? '#fff' : '#000'} />
+              </View>
             ),
           }}
         />
@@ -128,8 +161,18 @@ function TabLayoutInner() {
           name="connect"
           options={{
             title: 'Connect',
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="chat" size={size} color={color} />
+            tabBarIcon: ({ focused, size }) => (
+              <View style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: focused ? '#000' : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 20,
+              }}>
+                <MaterialCommunityIcons name="chat" size={20} color={focused ? '#fff' : '#000'} />
+              </View>
             ),
           }}
         />
