@@ -12,7 +12,7 @@ export default function EntryScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to Real Social</Text>
+        <Text style={styles.title}>Welcome to Pact</Text>
         <Text style={styles.subtitle}>
           Join a community of like-minded people who will help you stay on track with your goals.
         </Text>

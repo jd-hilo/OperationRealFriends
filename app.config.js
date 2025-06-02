@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: 'OperationRealSocial',
+    name: 'Pact',
     slug: 'pact',
     owner: 'jd-hilo',
     version: '1.0.0',

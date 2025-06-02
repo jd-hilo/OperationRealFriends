@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Tabs, useSegments } from 'expo-router';
 import { LayoutAnimation, Platform, UIManager, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Home, MessageCircle, PenLine } from 'lucide-react-native';
@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import MemberStatusBar from '../../components/MemberStatusBar';
 import { GroupProvider, useGroup } from '../../lib/GroupContext';
+import * as Haptics from 'expo-haptics';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android') {
@@ -25,6 +26,11 @@ function TabLayoutInner() {
   
   // Check if we're on the home tab
   const isHomePage = segments[segments.length - 1] === 'home';
+
+  // Haptics refs for each tab
+  const homeWasFocused = useRef(false);
+  const promptWasFocused = useRef(false);
+  const connectWasFocused = useRef(false);
 
   useEffect(() => {
     const checkGroupStatus = async () => {
@@ -123,57 +129,81 @@ function TabLayoutInner() {
           options={{
             title: 'Home',
             headerShown: false,
-            tabBarIcon: ({ focused, size }) => (
-              <View style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                backgroundColor: focused ? '#000' : 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 20,
-              }}>
-                <MaterialCommunityIcons name="home" size={20} color={focused ? '#fff' : '#000'} />
-              </View>
-            ),
+            tabBarIcon: ({ focused, size }) => {
+              useEffect(() => {
+                if (focused && !homeWasFocused.current) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                homeWasFocused.current = focused;
+              }, [focused]);
+              return (
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: focused ? '#000' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 20,
+                }}>
+                  <MaterialCommunityIcons name="home" size={20} color={focused ? '#fff' : '#000'} />
+                </View>
+              );
+            },
           }}
         />
         <Tabs.Screen
           name="prompt"
           options={{
             title: 'Prompt',
-            tabBarIcon: ({ focused, size }) => (
-              <View style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: focused ? '#000' : 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 20,
-              }}>
-                <MaterialCommunityIcons name="lightbulb" size={24} color={focused ? '#fff' : '#000'} />
-              </View>
-            ),
+            tabBarIcon: ({ focused, size }) => {
+              useEffect(() => {
+                if (focused && !promptWasFocused.current) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                promptWasFocused.current = focused;
+              }, [focused]);
+              return (
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: focused ? '#000' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 20,
+                }}>
+                  <MaterialCommunityIcons name="lightbulb" size={24} color={focused ? '#fff' : '#000'} />
+                </View>
+              );
+            },
           }}
         />
         <Tabs.Screen
           name="connect"
           options={{
             title: 'Connect',
-            tabBarIcon: ({ focused, size }) => (
-              <View style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                backgroundColor: focused ? '#000' : 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 20,
-              }}>
-                <MaterialCommunityIcons name="chat" size={20} color={focused ? '#fff' : '#000'} />
-              </View>
-            ),
+            tabBarIcon: ({ focused, size }) => {
+              useEffect(() => {
+                if (focused && !connectWasFocused.current) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                connectWasFocused.current = focused;
+              }, [focused]);
+              return (
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: focused ? '#000' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 20,
+                }}>
+                  <MaterialCommunityIcons name="chat" size={20} color={focused ? '#fff' : '#000'} />
+                </View>
+              );
+            },
           }}
         />
       </Tabs>

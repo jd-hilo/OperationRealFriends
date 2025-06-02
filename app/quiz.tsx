@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Alert, Linking, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { theme } from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 interface Question {
   id: number;
@@ -251,41 +252,17 @@ export default function QuizScreen() {
     }
   };
 
-  const handleTextSubmit = () => {
+  const handleTextSubmit = async () => {
     if (!textInput.trim()) return;
-
-    // Validate postal code format
-    if (currentQuestion === 11) { // Index 11 is the postal code question
-      const postalCode = textInput.trim();
+    
+    try {
+      // Trigger haptic feedback
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      // Check if it's a US ZIP code (5 digits)
-      const usZipRegex = /^\d{5}$/;
-      // Check if it's a Canadian postal code (A1A 1A1 format)
-      const canadaPostalRegex = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/;
-      // Check if it's a UK postcode (various formats)
-      const ukPostalRegex = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
-      // Check if it's a general international postal code (3-10 chars, alphanumeric with spaces/hyphens)
-      const internationalPostalRegex = /^[A-Za-z0-9\s\-]{3,10}$/;
-
-      if (!usZipRegex.test(postalCode) && 
-          !canadaPostalRegex.test(postalCode) && 
-          !ukPostalRegex.test(postalCode) && 
-          !internationalPostalRegex.test(postalCode)) {
-        setError('Please enter a valid postal code. Examples:\n• US: 12345\n• Canada: A1A 1A1\n• UK: SW1A 1AA\n• International: 3-10 characters');
-        return;
-      }
-
-      // If it's a US ZIP code, ensure it's a valid range (00001-99950)
-      if (usZipRegex.test(postalCode)) {
-        const zipNum = parseInt(postalCode);
-        if (zipNum < 1 || zipNum > 99950) {
-          setError('Please enter a valid US ZIP code (00001-99950)');
-          return;
-        }
-      }
+      await handleAnswer(textInput);
+    } catch (error) {
+      console.error('Error in handleTextSubmit:', error);
     }
-
-    handleAnswer(textInput.trim());
   };
 
   const handleTextChange = (text: string) => {

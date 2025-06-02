@@ -22,6 +22,8 @@ import { useAuth } from '../../lib/auth';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 
 interface SubmissionCardProps {
   submission: Submission;
@@ -304,6 +306,9 @@ export default function PromptScreen() {
     }
     
     try {
+      // Trigger haptic feedback
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
       setLoading(true);
       
       // Check if user has already submitted to this prompt
@@ -366,6 +371,9 @@ export default function PromptScreen() {
           }
         }));
       }
+
+      // Navigate to connect screen after successful submission
+      router.replace('/(tabs)/connect');
       
     } catch (error) {
       console.error('Error submitting response:', error);

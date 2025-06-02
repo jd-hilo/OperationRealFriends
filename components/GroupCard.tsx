@@ -51,12 +51,6 @@ const GroupCard: React.FC<GroupCardProps> = ({
       </View>
       {/* Map with member avatars */}
       <View style={styles.mapContainer}>{mapComponent}</View>
-      {/* Prompt count badge */}
-      <View style={styles.promptBadgeRow}>
-        <View style={styles.promptBadge}>
-          <Text style={styles.promptBadgeText}>{promptCount} prompts ✅</Text>
-        </View>
-      </View>
     </View>
   );
 };
@@ -144,28 +138,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 12,
     marginBottom: 12,
-  },
-  promptBadgeRow: {
-    width: '100%',
-    alignItems: 'flex-start',
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  promptBadge: {
-    backgroundColor: '#F2F6FF',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  promptBadgeText: {
-    color: '#1A7F37',
-    fontWeight: '600',
-    fontSize: 15,
-  },
+  }
 });
 
 export default GroupCard; 
