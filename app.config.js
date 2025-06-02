@@ -19,7 +19,7 @@ export default {
     ],
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.operationrealsocial.app',
+      bundleIdentifier: 'org.name.OperationRealSocial',
       buildNumber: '11',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false
