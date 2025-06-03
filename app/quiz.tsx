@@ -147,26 +147,56 @@ export default function QuizScreen() {
     },
     {
       id: 11,
-      text: 'What is your preferred name?',
+      text: "What's your main goal or project for this year?",
       type: 'text',
     },
     {
       id: 12,
-      text: 'What is your postal code? (Enter your local postal/zip code)',
-      type: 'text',
+      text: 'What kind of support or feedback helps you most when trying to stay accountable?',
+      options: [
+        'Friendly reminders and encouragement',
+        'Specific progress checklists and milestones',
+        'Honest feedback on where I\'m off-track',
+        'Celebrations when I hit milestones',
+      ],
     },
     {
       id: 13,
-      text: 'What is your preferred language?',
-      type: 'text',
+      text: 'How do you prefer to give support to others?',
+      options: [
+        'Sending regular check‑in messages',
+        'Sharing helpful resources and tips',
+        'Setting concrete tasks or deadlines',
+        'Offering encouragement and praise',
+      ],
     },
     {
       id: 14,
-      text: 'Write a short bio about yourself (2-3 sentences)',
+      text: 'What is your preferred name?',
       type: 'text',
     },
     {
       id: 15,
+      text: 'What is your postal code? (Enter your local postal/zip code)',
+      type: 'text',
+    },
+    {
+      id: 16,
+      text: 'What is your preferred language?',
+      type: 'text',
+    },
+    {
+      id: 17,
+      text: 'Write a short bio about yourself (2-3 sentences)',
+      type: 'text',
+    },
+    {
+      id: 18,
+      text: 'What is your Instagram username? (optional)',
+      type: 'text',
+    },
+    {
+      id: 19,
       text: 'Upload a picture of yourself',
       type: 'text',
     },
@@ -193,12 +223,18 @@ export default function QuizScreen() {
             question7: newAnswers[6],
             question8: newAnswers[7],
             question9: newAnswers[8],
-            question10: newAnswers[9]
+            question10: newAnswers[9],
+            question11: newAnswers[10],
+            question12: newAnswers[11],
+            question13: newAnswers[12]
           },
           user_profile: {
-            preferred_name: newAnswers[10],
-            location: newAnswers[11],
-            preferred_language: newAnswers[12]
+            preferred_name: newAnswers[13],
+            location: newAnswers[14],
+            preferred_language: newAnswers[15],
+            bio: newAnswers[16],
+            instagram_username: newAnswers[17],
+            avatar_url: newAnswers[18] || null
           }
         });
 
@@ -216,7 +252,10 @@ export default function QuizScreen() {
               question7: newAnswers[6],
               question8: newAnswers[7],
               question9: newAnswers[8],
-              question10: newAnswers[9]
+              question10: newAnswers[9],
+              question11: newAnswers[10],
+              question12: newAnswers[11],
+              question13: newAnswers[12]
             }
           })
           .eq('id', user?.id);
@@ -231,11 +270,12 @@ export default function QuizScreen() {
           .from('users')
           .update({
             has_completed_quiz: true,
-            preferred_name: newAnswers[10],
-            location: newAnswers[11],
-            preferred_language: newAnswers[12],
-            bio: newAnswers[13],
-            avatar_url: newAnswers[14] || null
+            preferred_name: newAnswers[13],
+            location: newAnswers[14],
+            preferred_language: newAnswers[15],
+            bio: newAnswers[16],
+            instagram_username: newAnswers[17],
+            avatar_url: newAnswers[18] || null
           })
           .eq('id', user?.id);
 
@@ -267,7 +307,7 @@ export default function QuizScreen() {
 
   const handleTextChange = (text: string) => {
     // Only modify text for postal code field
-    if (currentQuestion === 11) {
+    if (currentQuestion === 14) {
       // Remove any characters that aren't letters, numbers, spaces, or hyphens
       const cleanedText = text.replace(/[^A-Za-z0-9\s\-]/g, '');
       // Convert to uppercase for consistency
@@ -332,6 +372,13 @@ export default function QuizScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion(currentQuestion - 1);
+      setTextInput(''); // Reset text input when going back
+    }
+  };
+
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
@@ -359,9 +406,16 @@ export default function QuizScreen() {
         </View>
 
         <ScrollView style={styles.content}>
-          <Text style={styles.questionNumber}>
-            Question {currentQuestion + 1} of {questions.length}
-          </Text>
+          <View style={styles.headerContainer}>
+            {currentQuestion > 0 && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={24} color="#6366F1" />
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={styles.questionText}>
             {questions[currentQuestion].text}
           </Text>
@@ -369,7 +423,7 @@ export default function QuizScreen() {
           <View style={styles.optionsContainer}>
             {questions[currentQuestion].type === 'text' ? (
               <View style={styles.textInputContainer}>
-                {currentQuestion === 12 ? (
+                {currentQuestion === 15 ? (
                   // Language selection dropdown
                   <View style={styles.languageContainer}>
                     {LANGUAGES.map((language, index) => (
@@ -397,7 +451,7 @@ export default function QuizScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                ) : currentQuestion === 14 ? (
+                ) : currentQuestion === 18 ? (
                   // Profile picture upload
                   <View style={styles.profilePictureContainer}>
                     {selectedImage ? (
@@ -437,6 +491,12 @@ export default function QuizScreen() {
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.skipButton}
+                      onPress={() => handleAnswer('')}
+                    >
+                      <Text style={styles.skipButtonText}>Skip for now</Text>
+                    </TouchableOpacity>
                     <Text style={styles.uploadHint}>
                       Tap to take a photo with your camera
                     </Text>
@@ -449,25 +509,34 @@ export default function QuizScreen() {
                   <TextInput
                     style={[
                       styles.textInput,
-                      currentQuestion === 13 && styles.bioInput
+                      currentQuestion === 16 && styles.bioInput
                     ]}
                     value={textInput}
                     onChangeText={handleTextChange}
                     placeholder={
-                      currentQuestion === 10 ? "Enter your preferred name" :
-                      currentQuestion === 13 ? "Enter your bio" :
-                      "Enter your postal code..."
+                      currentQuestion === 10 ? "What's your main goal or project for this year?" :
+                      currentQuestion === 13 ? "Enter your preferred name" :
+                      currentQuestion === 14 ? "Enter your postal code..." :
+                      currentQuestion === 15 ? "Select your preferred language" :
+                      currentQuestion === 16 ? "Write a short bio about yourself (2-3 sentences)" :
+                      currentQuestion === 17 ? "Enter your Instagram username (optional)" :
+                      "Upload your profile picture"
                     }
                     placeholderTextColor="#888"
                     onSubmitEditing={handleTextSubmit}
                     returnKeyType="done"
-                    maxLength={currentQuestion === 11 ? 10 : undefined}
-                    autoCapitalize="none"
+                    maxLength={currentQuestion === 14 ? 10 : undefined}
+                    autoCapitalize={currentQuestion === 13 ? "words" : "none"}
                     autoCorrect={false}
                     spellCheck={false}
-                    multiline={currentQuestion === 13}
-                    textAlignVertical={currentQuestion === 13 ? "top" : "center"}
+                    multiline={currentQuestion === 16}
+                    textAlignVertical={currentQuestion === 16 ? "top" : "center"}
                   />
+                )}
+                {currentQuestion === 14 && (
+                  <Text style={styles.disclaimerText}>
+                    We use this for general location matching only. Your postal code is private and will not be shared with other users.
+                  </Text>
                 )}
                 <TouchableOpacity
                   style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
@@ -496,22 +565,12 @@ export default function QuizScreen() {
                   ]}
                   onPress={() => handleAnswer(option)}
                 >
-                  {answers[currentQuestion] === option ? (
-                    <LinearGradient
-                      colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.optionGradient}
-                    >
-                      <Text style={styles.selectedOptionText}>
-                        {option}
-                      </Text>
-                    </LinearGradient>
-                  ) : (
-                    <Text style={styles.optionText}>
-                      {option}
-                    </Text>
-                  )}
+                  <Text style={[
+                    styles.optionText,
+                    answers[currentQuestion] === option && styles.selectedOptionText
+                  ]}>
+                    {option}
+                  </Text>
                 </TouchableOpacity>
               ))
             )}
@@ -534,16 +593,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     width: '100%',
     borderBottomWidth: 2,
-    borderBottomColor: '#000',
+    borderBottomColor: '#E0E7FF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 4,
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#87CEEB',
+    backgroundColor: '#6366F1',
   },
   content: {
     flex: 1,
@@ -579,16 +638,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-  },
-  optionGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   selectedOption: {
-    // No border, just keep the gradient
+    borderColor: '#6366F1',
+    backgroundColor: '#F5F3FF',
   },
   optionText: {
     fontSize: theme.typography.fontSize.md,
@@ -598,11 +653,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   selectedOptionText: {
-    color: '#FFFFFF',
+    color: '#4B1AFF',
     fontWeight: '700',
-    fontSize: theme.typography.fontSize.md,
-    textAlign: 'center',
-    width: '100%',
   },
   textInputContainer: {
     marginTop: theme.spacing.sm,
@@ -777,5 +829,41 @@ const styles = StyleSheet.create({
   },
   uploadButtonTextDisabled: {
     color: '#9CA3AF',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  disclaimerText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
+    fontStyle: 'italic',
+    paddingHorizontal: theme.spacing.md,
+  },
+  skipButton: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.sm,
+  },
+  skipButtonText: {
+    color: '#666',
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

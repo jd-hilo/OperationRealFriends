@@ -174,6 +174,7 @@ export default function Dashboard() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
   const globeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -235,34 +236,34 @@ export default function Dashboard() {
   };
 
   const fetchData = async () => {
+    console.log('[fetchData] Called');
     if (!user) {
-      console.log('No user available');
+      console.log('[fetchData] No user available');
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Fetching data for user:', user.id);
-        
+      console.log('[fetchData] Fetching data for user:', user.id);
+
       // First, ensure user exists in the database
+      console.log('[fetchData] Checking if user exists in DB');
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
+      console.log('[fetchData] User check result:', { existingUser, userCheckError });
 
       if (userCheckError && userCheckError.code !== 'PGRST116') {
-        console.error('Error checking user:', userCheckError);
+        console.error('[fetchData] Error checking user:', userCheckError);
         throw userCheckError;
       }
 
-      console.log('Existing user data:', existingUser);
-
       // If user doesn't exist, create them
       if (!existingUser) {
-        console.log('Creating new user in database');
+        console.log('[fetchData] Creating new user in database');
         const { data: newUser, error: createError } = await supabase
           .from('users')
           .insert([
@@ -275,9 +276,10 @@ export default function Dashboard() {
           ])
           .select()
           .single();
+        console.log('[fetchData] User creation result:', { newUser, createError });
 
         if (createError) {
-          console.error('Error creating user:', createError);
+          console.error('[fetchData] Error creating user:', createError);
           throw createError;
         }
 
@@ -290,29 +292,31 @@ export default function Dashboard() {
 
       // Now fetch the user's quiz status
       setHasCompletedQuiz(existingUser.has_completed_quiz || false);
-      
+      console.log('[fetchData] User quiz status:', existingUser.has_completed_quiz);
+
       // If quiz is not completed, don't fetch group data
       if (!existingUser.has_completed_quiz) {
-        console.log('Quiz not completed, skipping group fetch');
+        console.log('[fetchData] Quiz not completed, skipping group fetch');
         setGroup(null);
         setCurrentPrompt(null);
         setSubmissions([]);
         return;
       }
-      
+
       // Debug: Check if user has a current_group_id
-      console.log('User current_group_id:', existingUser.current_group_id);
-      
+      console.log('[fetchData] User current_group_id:', existingUser.current_group_id);
+
       // If user has no group, show join group screen
       if (!existingUser.current_group_id) {
-        console.log('User has no group assigned');
+        console.log('[fetchData] User has no group assigned');
         setGroup(null);
         setCurrentPrompt(null);
         setSubmissions([]);
         return;
       }
-      
+
       // Fetch group data with the prompt using a join
+      console.log('[fetchData] Fetching group data for group:', existingUser.current_group_id);
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .select(`
@@ -321,25 +325,23 @@ export default function Dashboard() {
         `)
         .eq('id', existingUser.current_group_id)
         .single();
-        
+      console.log('[fetchData] Group fetch result:', { groupData, groupError });
+
       if (groupError) {
-        console.error('Error fetching group:', groupError);
-        return;
-      }
-      
-      if (!groupData) {
-        console.error('No group found for user');
+        console.error('[fetchData] Error fetching group:', groupError);
         return;
       }
 
-      console.log('Group data:', groupData);
+      if (!groupData) {
+        console.error('[fetchData] No group found for user');
+        return;
+      }
 
       // Use the next_prompt_due from the group table
       if (groupData.next_prompt_due) {
-        console.log('Next prompt due:', groupData.next_prompt_due);
+        console.log('[fetchData] Next prompt due:', groupData.next_prompt_due);
         const nextPromptDue = new Date(groupData.next_prompt_due);
         setPromptDueDate(nextPromptDue);
-        
         // Initialize timer display
         const now = new Date();
         if (now > nextPromptDue) {
@@ -351,55 +353,58 @@ export default function Dashboard() {
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s until next prompt`);
         }
       } else {
-        console.log('No next_prompt_due set for group');
+        console.log('[fetchData] No next_prompt_due set for group');
         setTimeLeft('Next prompt time not set');
       }
-      
+
       setGroup(groupData);
       setCurrentPrompt(groupData.prompts);
 
       // Check group status (submissions and time)
+      console.log('[fetchData] Checking group status');
       await checkGroupStatus(groupData);
 
       // Fetch all users in this group
+      console.log('[fetchData] Fetching group members for group:', groupData.id);
       const { data: groupMembers, error: membersError } = await supabase
         .from('users')
         .select('*')
         .eq('current_group_id', groupData.id);
+      console.log('[fetchData] Group members fetch result:', { groupMembers, membersError });
 
       if (membersError) {
-        console.error('Error fetching group members:', membersError);
+        console.error('[fetchData] Error fetching group members:', membersError);
       } else {
         // Fetch submissions for the current prompt
+        console.log('[fetchData] Fetching submissions for group:', groupData.id, 'prompt:', groupData.current_prompt_id);
         const { data: currentSubmissions, error: submissionsError } = await supabase
           .from('submissions')
           .select('*')
           .eq('group_id', groupData.id)
           .eq('prompt_id', groupData.current_prompt_id);
+        console.log('[fetchData] Submissions fetch result:', { currentSubmissions, submissionsError });
 
         if (submissionsError) {
-          console.error('Error fetching submissions:', submissionsError);
+          console.error('[fetchData] Error fetching submissions:', submissionsError);
         } else {
           // Update member submission status based on current prompt submissions
           const updatedMembers = groupMembers.map(member => ({
             ...member,
             submitted: currentSubmissions?.some(sub => sub.user_id === member.id) || false
           }));
-
-          console.log('Updated members with submission status:', updatedMembers);
+          console.log('[fetchData] Updated members with submission status:', updatedMembers);
           setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
         }
       }
 
       // Get coordinates for each member's postal code
       const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
-      
       for (const member of groupMembers || []) {
         try {
-          console.log('Processing member:', member.email, 'Location:', member.location);
-          
+          console.log('[fetchData] Processing member:', member.email, 'Location:', member.location);
           if (member.location) {
             const coords = await getCoordinatesFromPostalCode(member.location);
+            console.log('[fetchData] Geocode result:', coords);
             if (coords) {
               locations[member.id] = {
                 latitude: coords.latitude,
@@ -407,9 +412,9 @@ export default function Dashboard() {
                 name: member.email?.split('@')[0] || 'Anonymous',
                 country: coords.country
               };
-              console.log('Added location for member:', member.email, locations[member.id]);
+              console.log('[fetchData] Added location for member:', member.email, locations[member.id]);
             } else {
-              console.log('No coordinates found for member:', member.email);
+              console.log('[fetchData] No coordinates found for member:', member.email);
               // Default location if geocoding fails
               locations[member.id] = {
                 latitude: 0,
@@ -419,7 +424,7 @@ export default function Dashboard() {
               };
             }
           } else {
-            console.log('No location set for member:', member.email);
+            console.log('[fetchData] No location set for member:', member.email);
             // Default location for users without a postal code
             locations[member.id] = {
               latitude: 0,
@@ -429,7 +434,7 @@ export default function Dashboard() {
             };
           }
         } catch (error) {
-          console.error(`Error getting coordinates for user ${member.id}:`, error);
+          console.error(`[fetchData] Error getting coordinates for user ${member.id}:`, error);
           // Add user with default location if there's an error
           locations[member.id] = {
             latitude: 0,
@@ -439,13 +444,13 @@ export default function Dashboard() {
           };
         }
       }
-      
-      console.log('Final locations object:', locations);
+      console.log('[fetchData] Final locations object:', locations);
       setUserLocations(locations);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('[fetchData] Error fetching dashboard data:', error);
       setError('Failed to load data. Please try again.');
     } finally {
+      console.log('[fetchData] Setting loading to false');
       setLoading(false);
     }
   };
@@ -695,19 +700,53 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    // Reset animations
+    globeAnim.setValue(0);
+    pulseAnim.setValue(0);
+
+    // Continuous rotation animation
     Animated.loop(
       Animated.timing(globeAnim, {
         toValue: 1,
-        duration: 4000,
+        duration: 20000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
     ).start();
+
+    // Pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Cleanup animations on unmount
+    return () => {
+      globeAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+    };
   }, []);
 
-  const globeSpin = globeAnim.interpolate({
+  const spin = globeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ['0deg', '360deg']
+  });
+
+  const scale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.05]
   });
 
   if (loading) {
@@ -719,10 +758,15 @@ export default function Dashboard() {
         end={{ x: 0, y: 1 }}
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
       >
-        <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: globeSpin }] }]}> 
+        <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: spin }, { scale: scale }] }]}> 
           <Image
             source={require('../../assets/globe.png')}
             style={styles.queueIcon}
+            resizeMode="contain"
+          />
+          <Image 
+            source={require('../../assets/logo.png')} 
+            style={styles.queueLogo}
             resizeMode="contain"
           />
         </Animated.View>
@@ -787,10 +831,25 @@ export default function Dashboard() {
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
       >
         <View style={styles.queueContent}>
-          <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: globeSpin }] }]}> 
+          <Animated.View 
+            style={[
+              styles.queueIconWrapper,
+              {
+                transform: [
+                  { rotate: spin },
+                  { scale: scale }
+                ]
+              }
+            ]}
+          > 
             <Image
               source={require('../../assets/globe.png')}
               style={styles.queueIcon}
+              resizeMode="contain"
+            />
+            <Image 
+              source={require('../../assets/logo.png')} 
+              style={styles.queueLogo}
               resizeMode="contain"
             />
           </Animated.View>
@@ -1224,40 +1283,48 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   queueContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
     padding: theme.spacing.xl,
-    width: '90%',
-    alignSelf: 'center',
   },
   queueIconWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F5F6FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    width: 260,
+    height: 260,
+    marginBottom: theme.spacing.xl,
+    position: 'relative',
   },
   queueIcon: {
-    width: 90,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  queueLogo: {
+    position: 'absolute',
+    width: 180,
     height: 90,
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -90 }, { translateY: -45 }],
+    resizeMode: 'contain',
+  },
+  queueTitle: {
+    fontSize: theme.typography.fontSize.xxl,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  queueSubtitle: {
+    fontSize: theme.typography.fontSize.lg,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: theme.spacing.xl,
+    lineHeight: 24,
   },
   queueButton: {
-    width: 260,
-    height: 56,
+    width: 280,
+    height: 62,
     borderRadius: 51,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -1265,51 +1332,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 25.1,
     elevation: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginVertical: theme.spacing.lg,
   },
   queueButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
-    width: '100%',
-  },
-  queueTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: theme.typography.fontSize.xl,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.md,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  queueSubtitle: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    fontWeight: '500',
-    backgroundColor: '#FFFFFF',
-    padding: theme.spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
   },
   queueHint: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    fontSize: theme.typography.fontSize.md,
+    color: '#666',
     textAlign: 'center',
-    fontWeight: '500',
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.xl,
+    lineHeight: 22,
   },
   timerTextExpired: {
     color: theme.colors.error,
