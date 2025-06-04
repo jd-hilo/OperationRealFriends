@@ -50,6 +50,7 @@ export interface Group {
   members?: User[];
   current_prompt?: Prompt;
   prompts?: Prompt[];
+  match_reason?: string;
 }
 
 export type Prompt = {

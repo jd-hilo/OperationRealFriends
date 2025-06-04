@@ -31,8 +31,8 @@ export default function QueueScreen() {
 
   return (
     <LinearGradient
-      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
-      locations={[0, 0.4808, 0.9904]}
+      colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+      locations={[0, 0.5192, 1]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={styles.container}
@@ -46,7 +46,7 @@ export default function QueueScreen() {
         <Text style={styles.subtitle}>
           We're matching you with compatible group members based on your preferences and personality.
         </Text>
-        <ActivityIndicator size="large" color="#6366F1" style={styles.spinner} />
+        <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
         <Text style={styles.hint}>
           This usually takes a few minutes. We'll notify you when your group is ready!
         </Text>
@@ -55,14 +55,16 @@ export default function QueueScreen() {
           style={styles.button}
           onPress={handleGoHome}
         >
-          <LinearGradient
-            colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.buttonGradient}
-          >
-            <Text style={styles.buttonText}>Go to Home</Text>
-          </LinearGradient>
+          <View style={styles.buttonGradient}>
+            <LinearGradient
+              colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.textGradient}
+            >
+              <Text style={styles.buttonText}>Go to Home</Text>
+            </LinearGradient>
+          </View>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -80,8 +82,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
   },
   globeWrapper: {
-    width: 260,
-    height: 260,
+    width: 300,
+    height: 300,
     marginBottom: theme.spacing.xl,
     position: 'relative',
   },
@@ -92,42 +94,45 @@ const styles = StyleSheet.create({
   },
   logo: {
     position: 'absolute',
-    width: 180,
-    height: 90,
+    width: 220,
+    height: 110,
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -90 }, { translateY: -45 }],
+    transform: [{ translateX: -110 }, { translateY: -55 }],
     resizeMode: 'contain',
   },
   title: {
     fontSize: theme.typography.fontSize.xxl,
     fontWeight: '700',
-    color: '#222',
+    color: '#FFFFFF',
     marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: theme.typography.fontSize.lg,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
     lineHeight: 24,
+    opacity: 0.9,
   },
   spinner: {
     marginBottom: theme.spacing.xl,
   },
   hint: {
     fontSize: theme.typography.fontSize.md,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
     lineHeight: 22,
+    opacity: 0.8,
   },
   button: {
     width: 280,
     height: 62,
     borderRadius: 51,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
@@ -141,8 +146,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  textGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',

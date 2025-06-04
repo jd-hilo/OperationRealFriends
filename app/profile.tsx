@@ -193,6 +193,44 @@ export default function Profile() {
     Alert.alert('Settings', 'Settings page coming soon!');
   };
 
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (!user) return;
+              
+              // Delete user data from Supabase
+              const { error: deleteError } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', user.id);
+
+              if (deleteError) throw deleteError;
+
+              // Delete the user's auth account
+              const { error: authError } = await supabase.auth.admin.deleteUser(user.id);
+              if (authError) throw authError;
+
+              // Sign out and redirect to welcome screen
+              await signOut();
+              router.replace('/welcome');
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <LinearGradient
       colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
@@ -290,12 +328,6 @@ export default function Profile() {
 
         {/* Actions */}
         <View style={styles.actionsCard}>
-          <TouchableOpacity style={styles.actionItem} onPress={handleEditProfile}>
-            <Edit size={20} color="#3AB9F9" />
-            <Text style={styles.actionText}>Edit Profile</Text>
-            <ArrowRight size={16} color="#999" />
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.actionItem} onPress={handleSettings}>
             <Settings size={20} color="#3AB9F9" />
             <Text style={styles.actionText}>Settings</Text>
@@ -305,6 +337,14 @@ export default function Profile() {
           <TouchableOpacity style={[styles.actionItem, styles.signOutItem]} onPress={handleSignOut}>
             <LogOut size={20} color="#FF3B30" />
             <Text style={[styles.actionText, styles.signOutText]}>Sign Out</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionItem, styles.deleteAccountItem]} 
+            onPress={handleDeleteAccount}
+          >
+            <LogOut size={20} color="#FF3B30" />
+            <Text style={[styles.actionText, styles.deleteAccountText]}>Delete Account</Text>
           </TouchableOpacity>
         </View>
 
@@ -572,6 +612,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   signOutText: {
+    color: '#FF3B30',
+  },
+  deleteAccountItem: {
+    borderBottomWidth: 0,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  deleteAccountText: {
     color: '#FF3B30',
   },
   modalOverlay: {

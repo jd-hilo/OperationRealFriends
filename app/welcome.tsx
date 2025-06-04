@@ -123,7 +123,7 @@ export default function WelcomeScreen() {
               />
             );
           })}
-          <Image source={require('../assets/logo.png')} style={styles.logo} />
+        <Image source={require('../assets/logo.png')} style={styles.logo} />
         </Animated.View>
         <Animated.Text 
           style={[

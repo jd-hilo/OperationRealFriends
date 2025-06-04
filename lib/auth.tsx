@@ -20,119 +20,134 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const ensureUserProfile = async (userId: string, email: string) => {
-    // First try to fetch the profile
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      // First try to fetch the profile
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    // If profile exists, return it
-    if (existingProfile) {
-      return existingProfile;
+      // If profile exists, return it
+      if (existingProfile) {
+        return existingProfile;
+      }
+
+      // If no profile exists, create one
+      const { error: insertError } = await supabase
+        .from('users')
+        .upsert([
+          {
+            id: userId,
+            email: email,
+            created_at: new Date().toISOString(),
+            has_completed_quiz: false,
+            submitted: false,
+            last_submission_date: null,
+            current_group_id: null
+          }
+        ]);
+
+      if (insertError) {
+        console.error('Error creating user record:', insertError);
+        throw insertError;
+      }
+
+      // Fetch the newly created profile
+      const { data: newProfile, error: newFetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (newFetchError) {
+        console.error('Error fetching new user profile:', newFetchError);
+        throw newFetchError;
+      }
+
+      return newProfile;
+    } catch (error) {
+      console.error('Error in ensureUserProfile:', error);
+      throw error;
     }
+  };
 
-    // If no profile exists, create one
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email: email,
-          created_at: new Date().toISOString(),
-          has_completed_quiz: false,
-          submitted: false,
-          last_submission_date: null,
-          current_group_id: null
-        }
-      ]);
-
-    if (insertError) {
-      console.error('Error creating user record:', insertError);
-      throw insertError;
+  const handleAuthStateChange = async (session: Session | null) => {
+    try {
+      setSession(session);
+      if (session?.user) {
+        const profile = await ensureUserProfile(session.user.id, session.user.email || '');
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Error handling auth state change:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-
-    // Fetch the newly created profile
-    const { data: newProfile, error: newFetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (newFetchError) {
-      console.error('Error fetching new user profile:', newFetchError);
-      throw newFetchError;
-    }
-
-    return newProfile;
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        try {
-          const profile = await ensureUserProfile(session.user.id, session.user.email || '');
-          setUser(profile);
-        } catch (error) {
-          console.error('Error ensuring user profile:', error);
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleAuthStateChange(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        try {
-          const profile = await ensureUserProfile(session.user.id, session.user.email || '');
-          setUser(profile);
-        } catch (error) {
-          console.error('Error ensuring user profile:', error);
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleAuthStateChange(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error in signIn:', error);
+      throw error;
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    console.log('Attempting sign up with:', { email, passwordLength: password.length });
-    const { data, error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        emailRedirectTo: 'https://pgnzcvlvyomsfvpiukqj.supabase.co/auth/v1/verify'
+    try {
+      console.log('Attempting sign up with:', { email, passwordLength: password.length });
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: 'https://pgnzcvlvyomsfvpiukqj.supabase.co/auth/v1/verify'
+        }
+      });
+      console.log('Sign up response:', { data, error });
+      if (error) {
+        console.error('Sign up error:', error);
+        throw error;
       }
-    });
-    console.log('Sign up response:', { data, error });
-    if (error) {
-      console.error('Sign up error:', error);
-      throw error;
-    }
 
-    // Create and fetch user profile after successful signup
-    if (data.user) {
-      const profile = await ensureUserProfile(data.user.id, email);
-      setUser(profile);
+      // Create and fetch user profile after successful signup
+      if (data.user) {
+        const profile = await ensureUserProfile(data.user.id, email);
+        setUser(profile);
+      }
+    } catch (error) {
+      console.error('Error in signUp:', error);
+      throw error;
     }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error in signOut:', error);
+      throw error;
+    }
   };
 
   return (

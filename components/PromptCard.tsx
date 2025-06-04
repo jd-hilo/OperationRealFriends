@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface PromptCardProps {
   promptType: 'text' | 'photo';
@@ -8,9 +9,10 @@ interface PromptCardProps {
   prompt: string;
   timeLeft: string; // e.g. '02:34'
   onRespond: () => void;
+  hasSubmitted?: boolean;
 }
 
-const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeLeft, onRespond }) => {
+const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeLeft, onRespond, hasSubmitted }) => {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -35,16 +37,23 @@ const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeL
         <Text style={styles.promptLabel}>Today's prompt</Text>
         <Text style={styles.promptText}>{prompt}</Text>
       </View>
-      <TouchableOpacity style={styles.button} onPress={onRespond} activeOpacity={0.85}>
-        <LinearGradient
-          colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.buttonGradient}
-        >
-          <Text style={styles.buttonText}>Respond now</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+      {hasSubmitted ? (
+        <View style={styles.submittedButton}>
+          <Text style={styles.submittedText}>Submitted</Text>
+          <MaterialCommunityIcons name="check-circle" size={24} color="#4B1AFF" style={{ marginLeft: 8 }} />
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.button} onPress={onRespond} activeOpacity={0.85}>
+          <LinearGradient
+            colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.buttonGradient}
+          >
+            <Text style={styles.buttonText}>Respond now</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -135,6 +144,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#222',
     lineHeight: 22,
+  },
+  submittedButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 32,
+    gap: 10,
+    minWidth: 180,
+    borderRadius: 51,
+    borderWidth: 2,
+    borderColor: '#4B1AFF',
+    alignSelf: 'center',
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 25.1,
+    elevation: 6,
+  },
+  submittedText: {
+    color: '#4B1AFF',
+    fontWeight: '700',
+    fontSize: 20,
   },
   button: {
     width: '100%',

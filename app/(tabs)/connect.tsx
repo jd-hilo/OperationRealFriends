@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isSameDay } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,7 @@ import Card from '../../components/Card';
 import { useAuth } from '../../lib/auth';
 import { translateMessage, Language, LANGUAGES } from '../../lib/translations';
 import EmojiPicker from '../../components/EmojiPicker';
+import { reportMessage } from '../../lib/reports';
 
 interface ChatMessageProps {
   message: Message;
@@ -199,6 +200,33 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user, isCurrentUser,
   const handleLongPress = () => {
     if (isCurrentUser && onDelete) {
       onDelete(message);
+    } else {
+      Alert.alert(
+        'Report Message',
+        'Would you like to report this message?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Report',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { success, error } = await reportMessage(message.id, 'Inappropriate content');
+                if (success) {
+                  Alert.alert('Success', 'Message has been reported.');
+                } else {
+                  Alert.alert('Error', error || 'Failed to report message.');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to report message.');
+              }
+            }
+          }
+        ]
+      );
     }
   };
 

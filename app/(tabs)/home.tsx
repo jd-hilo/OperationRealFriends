@@ -39,6 +39,8 @@ import GroupMap from '../../components/GroupMap';
 import PromptCard from '../../components/PromptCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import GroupDetailsCard from '../../components/GroupDetailsCard';
+import MatchReasonCard from '../../components/MatchReasonCard';
 
 const { width } = Dimensions.get('window');
 
@@ -153,6 +155,28 @@ const getCoordinatesFromPostalCode = async (postalCode: string) => {
   }
 };
 
+// Simple country to continent mapping
+const countryToContinent = (country: string) => {
+  if (!country) return 'Unknown';
+  const mapping: Record<string, string> = {
+    'United States': 'North America',
+    'Canada': 'North America',
+    'Mexico': 'North America',
+    'Brazil': 'South America',
+    'Argentina': 'South America',
+    'United Kingdom': 'Europe',
+    'France': 'Europe',
+    'Germany': 'Europe',
+    'India': 'Asia',
+    'China': 'Asia',
+    'Japan': 'Asia',
+    'Australia': 'Oceania',
+    'South Africa': 'Africa',
+    // ...add more as needed
+  };
+  return mapping[country] || country;
+};
+
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
@@ -175,6 +199,9 @@ export default function Dashboard() {
   const [headerVisible, setHeaderVisible] = useState(true);
   const globeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
+  const [messages, setMessages] = useState<any[]>([]);
+  const [continentCount, setContinentCount] = useState(0);
+  const [submissionsToCurrentPrompt, setSubmissionsToCurrentPrompt] = useState(0);
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -394,6 +421,12 @@ export default function Dashboard() {
           }));
           console.log('[fetchData] Updated members with submission status:', updatedMembers);
           setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
+          if (currentSubmissions) {
+            const uniqueUserIds = new Set(currentSubmissions.map(sub => sub.user_id));
+            setSubmissionsToCurrentPrompt(uniqueUserIds.size);
+          } else {
+            setSubmissionsToCurrentPrompt(0);
+          }
         }
       }
 
@@ -446,6 +479,42 @@ export default function Dashboard() {
       }
       console.log('[fetchData] Final locations object:', locations);
       setUserLocations(locations);
+
+      // Check if user has already submitted (match prompt page logic)
+      if (groupData && user) {
+        const { data: userSubmission, error: submissionError } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('group_id', groupData.id)
+          .eq('user_id', user.id)
+          .single();
+        if (!submissionError && userSubmission) {
+          setHasSubmitted(true);
+        } else {
+          setHasSubmitted(false);
+        }
+      }
+
+      // Fetch messages for the group
+      const fetchMessages = async () => {
+        if (!groupData) return;
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('group_id', groupData.id);
+        if (!error && data) setMessages(data);
+      };
+      fetchMessages();
+
+      // Calculate unique continents from userLocations
+      const continents = new Set();
+      Object.values(locations).forEach(loc => {
+        if (loc.country) {
+          continents.add(countryToContinent(loc.country));
+        }
+      });
+      setContinentCount(continents.size);
+
     } catch (error) {
       console.error('[fetchData] Error fetching dashboard data:', error);
       setError('Failed to load data. Please try again.');
@@ -824,8 +893,8 @@ export default function Dashboard() {
   if (hasCompletedQuiz && !group) {
     return (
       <LinearGradient
-        colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
-        locations={[0, 0.4808, 0.9904]}
+        colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+        locations={[0, 0.5192, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
@@ -861,17 +930,19 @@ export default function Dashboard() {
             style={styles.queueButton}
             onPress={handleNotifyMe}
           >
-            <LinearGradient
-              colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.buttonGradient}
-            >
-              <Text style={styles.queueButtonText}>Notify Me When Ready</Text>
-            </LinearGradient>
+            <View style={styles.queueButtonInner}>
+              <LinearGradient
+                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.queueButtonGradient}
+              >
+                <Text style={styles.queueButtonText}>Notify Me When Ready</Text>
+              </LinearGradient>
+            </View>
           </TouchableOpacity>
           <Text style={styles.queueHint}>
-            This usually takes a few minutes. Feel free to check back later!
+            This usually takes a 5-6 hours. Check back here to see if you've been assigned yet.
           </Text>
         </View>
       </LinearGradient>
@@ -947,7 +1018,6 @@ export default function Dashboard() {
             mapComponent={<GroupMap userLocations={userLocations} />}
           />
         </View>
-        
         <View style={styles.section}>
           <PromptCard
             promptType={currentPrompt?.prompt_type === 'photo' ? 'photo' : 'text'}
@@ -961,8 +1031,23 @@ export default function Dashboard() {
               if (!group) return handleJoinGroup();
               router.push('/(tabs)/prompt');
             }}
+            hasSubmitted={hasSubmitted}
           />
         </View>
+        <View style={styles.section}>
+          <GroupDetailsCard
+            streakMilestone={`${group?.streak_count || 0}-day streak unlocked!`}
+            promptsSeen={`${submissionsToCurrentPrompt} posted to current prompt`}
+            messagesExchanged={`${messages.length} messages exchanged`}
+            continents={`Members from ${continentCount} continents`}
+          />
+        </View>
+        <View style={styles.section}>
+          <MatchReasonCard
+            reason={group?.match_reason || 'You were matched based on your quiz answers and shared interests!'}
+          />
+        </View>
+        
         <View style={{ height: 300 }} />
       </ScrollView>
     </LinearGradient>
@@ -1289,8 +1374,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
   },
   queueIconWrapper: {
-    width: 260,
-    height: 260,
+    width: 300,
+    height: 300,
     marginBottom: theme.spacing.xl,
     position: 'relative',
   },
@@ -1301,50 +1386,68 @@ const styles = StyleSheet.create({
   },
   queueLogo: {
     position: 'absolute',
-    width: 180,
-    height: 90,
+    width: 440,
+    height: 220,
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -90 }, { translateY: -45 }],
+    transform: [{ translateX: -220 }, { translateY: -110 }],
     resizeMode: 'contain',
   },
   queueTitle: {
     fontSize: theme.typography.fontSize.xxl,
     fontWeight: '700',
-    color: '#222',
+    color: '#FFFFFF',
     marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   queueSubtitle: {
     fontSize: theme.typography.fontSize.lg,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
     lineHeight: 24,
+    opacity: 0.9,
   },
   queueButton: {
     width: 280,
     height: 62,
     borderRadius: 51,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 25.1,
     elevation: 6,
   },
+  queueButtonInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 51,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   queueButtonText: {
-    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
+    color: '#FFFFFF',
   },
   queueHint: {
     fontSize: theme.typography.fontSize.md,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginTop: theme.spacing.xl,
     lineHeight: 22,
+    opacity: 0.8,
   },
   timerTextExpired: {
     color: theme.colors.error,

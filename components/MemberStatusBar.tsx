@@ -65,7 +65,7 @@ const MemberStatusBar: React.FC<MemberStatusBarProps> = ({
             <Text style={styles.statsText}>{checkedInCount}/{totalCount} checked in</Text>
           </View>
           <View style={styles.statsBadge}>
-            <Text style={styles.statsText}>Next check-in: {nextCheckIn}</Text>
+            <Text style={styles.statsText}>Submit By: {nextCheckIn}</Text>
           </View>
         </View>
       </View>

@@ -569,8 +569,8 @@ export default function QuizScreen() {
                     styles.optionText,
                     answers[currentQuestion] === option && styles.selectedOptionText
                   ]}>
-                    {option}
-                  </Text>
+                      {option}
+                    </Text>
                 </TouchableOpacity>
               ))
             )}
