@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, RefreshControl, Pressable, Alert, Keyboard } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatDistanceToNow, format, isSameDay } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -943,6 +943,12 @@ export default function ConnectScreen() {
           multiline
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType={Platform.OS === 'ios' ? 'done' : 'send'}
+          blurOnSubmit={Platform.OS !== 'ios'}
+          onSubmitEditing={() => {
+            handleSend();
+            Keyboard.dismiss();
+          }}
         />
         <TouchableOpacity
           style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}

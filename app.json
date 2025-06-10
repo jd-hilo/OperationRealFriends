@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
-      "buildNumber": "17",
+      "buildNumber": "19",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -27,7 +27,8 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "org.name.OperationRealSocial"
+      "package": "org.name.OperationRealSocial",
+      "versionCode": 18
     },
     "web": {
       "favicon": "./assets/icon.png"
