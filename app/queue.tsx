@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image, Animated, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,8 +25,8 @@ export default function QueueScreen() {
     outputRange: ['0deg', '360deg']
   });
 
-  const handleGoHome = () => {
-    router.replace('/(tabs)/home');
+  const handleJoinWaitlist = () => {
+    Linking.openURL('https://wt.ls/pact');
   };
 
   return (
@@ -42,18 +42,18 @@ export default function QueueScreen() {
           <Image source={require('../assets/globe.png')} style={styles.globe} />
           <Image source={require('../assets/logo.png')} style={styles.logo} />
         </Animated.View>
-        <Text style={styles.title}>Finding Your Crew</Text>
+        <Text style={styles.title}>Join the Waitlist</Text>
         <Text style={styles.subtitle}>
-          We're matching you with compatible group members based on your preferences and personality.
+          We're currently at capacity, but you can join our waitlist to be among the first to know when spots open up!
         </Text>
         <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
         <Text style={styles.hint}>
-          This usually takes a few minutes. We'll notify you when your group is ready!
+          Join now to secure your spot and get early access to our community.
         </Text>
         
         <TouchableOpacity 
           style={styles.button}
-          onPress={handleGoHome}
+          onPress={handleJoinWaitlist}
         >
           <View style={styles.buttonGradient}>
             <LinearGradient
@@ -62,7 +62,7 @@ export default function QueueScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.textGradient}
             >
-              <Text style={styles.buttonText}>Go to Home</Text>
+              <Text style={styles.buttonText}>Join Waitlist</Text>
             </LinearGradient>
           </View>
         </TouchableOpacity>

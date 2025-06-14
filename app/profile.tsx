@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Edit, Settings, LogOut, User, Mail, MapPin, ArrowRight, Camera } from 'lucide-react-native';
+import { ArrowLeft, Edit, Settings, LogOut, User, Mail, MapPin, ArrowRight, Camera, Users } from 'lucide-react-native';
 import { useAuth } from '../lib/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -231,6 +231,48 @@ export default function Profile() {
     );
   };
 
+  const handleLeaveGroup = async () => {
+    if (!user?.current_group_id) return;
+
+    Alert.alert(
+      'Leave Group',
+      'Are you sure you want to leave this group?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave Group',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remove user from group_members
+              const { error: deleteError } = await supabase
+                .from('group_members')
+                .delete()
+                .eq('group_id', user.current_group_id)
+                .eq('user_id', user.id);
+
+              if (deleteError) throw deleteError;
+
+              // Update user's current_group_id to null
+              const { error: updateError } = await supabase
+                .from('users')
+                .update({ current_group_id: null })
+                .eq('id', user.id);
+
+              if (updateError) throw updateError;
+
+              // Navigate to home screen
+              router.replace('/(tabs)/home');
+            } catch (error) {
+              console.error('Error leaving group:', error);
+              Alert.alert('Error', 'Failed to leave group. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <LinearGradient
       colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
@@ -333,6 +375,13 @@ export default function Profile() {
             <Text style={styles.actionText}>Settings</Text>
             <ArrowRight size={16} color="#999" />
           </TouchableOpacity>
+
+          {user?.current_group_id && (
+            <TouchableOpacity style={[styles.actionItem, styles.leaveGroupItem]} onPress={handleLeaveGroup}>
+              <Users size={20} color="#FFB800" />
+              <Text style={[styles.actionText, styles.leaveGroupText]}>Leave Group ⚠️</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={[styles.actionItem, styles.signOutItem]} onPress={handleSignOut}>
             <LogOut size={20} color="#FF3B30" />
@@ -622,6 +671,13 @@ const styles = StyleSheet.create({
   },
   deleteAccountText: {
     color: '#FF3B30',
+  },
+  leaveGroupItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  leaveGroupText: {
+    color: '#FFB800',
   },
   modalOverlay: {
     flex: 1,

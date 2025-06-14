@@ -10,6 +10,7 @@ import {
   Dimensions,
   Alert,
   Easing,
+  Linking,
 } from 'react-native';
 import {
   Clock,
@@ -818,6 +819,10 @@ export default function Dashboard() {
     outputRange: [1, 1.05]
   });
 
+  const handleJoinWaitlist = () => {
+    Linking.openURL('https://wt.ls/pact');
+  };
+
   if (loading) {
     return (
       <LinearGradient
@@ -922,13 +927,13 @@ export default function Dashboard() {
               resizeMode="contain"
             />
           </Animated.View>
-          <Text style={styles.queueTitle}>Finding Your Crew</Text>
+          <Text style={styles.queueTitle}>Join the Waitlist</Text>
           <Text style={styles.queueSubtitle}>
-            We're matching you with compatible group members based on your preferences and personality.
+            We're currently at capacity, but you can join our waitlist to be among the first to know when spots open up!
           </Text>
           <TouchableOpacity 
             style={styles.queueButton}
-            onPress={handleNotifyMe}
+            onPress={handleJoinWaitlist}
           >
             <View style={styles.queueButtonInner}>
               <LinearGradient
@@ -937,12 +942,12 @@ export default function Dashboard() {
                 end={{ x: 1, y: 0 }}
                 style={styles.queueButtonGradient}
               >
-                <Text style={styles.queueButtonText}>Notify Me When Ready</Text>
+                <Text style={styles.queueButtonText}>Join Waitlist</Text>
               </LinearGradient>
             </View>
           </TouchableOpacity>
           <Text style={styles.queueHint}>
-            This usually takes a 5-6 hours. Check back here to see if you've been assigned yet.
+            Join now to secure your spot and get early access to our community.
           </Text>
         </View>
       </LinearGradient>
