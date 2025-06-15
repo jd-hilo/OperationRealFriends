@@ -17,9 +17,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
-      "buildNumber": "20",
+      "buildNumber": "21",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "We need access to your photos so you can upload a profile picture and personalize your account.",
+        "NSCameraUsageDescription": "We need access to your camera so you can take a new profile picture and personalize your account."
       }
     },
     "android": {

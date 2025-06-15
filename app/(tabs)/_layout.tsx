@@ -101,6 +101,7 @@ function TabLayoutInner() {
           members={group.members}
           userId={user?.id || ''}
           nextCheckIn={group.next_prompt_due ? new Date(group.next_prompt_due).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true, weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+          groupId={group.id}
         />
       )}
       <Tabs

@@ -320,55 +320,83 @@ export default function QuizScreen() {
 
   const handleUploadImage = async () => {
     try {
-      console.log('Starting image upload process...');
-
-      // Pick image with minimal configuration
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.1,
-        base64: true,
-      });
-
-      console.log('Image picker result:', result);
-
-      if (!result.canceled && result.assets[0]) {
-        if (!user) return;
-
-        setError('Uploading image...');
-        const fileName = `${user.id}/${Date.now()}.jpg`;
-        const base64Data = result.assets[0].base64;
-        if (!base64Data) {
-          throw new Error('Failed to get image data');
+      // Check current permission status
+      const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (status === 'granted') {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.1,
+          base64: true,
+        });
+        if (!result.canceled && result.assets[0]) {
+          if (!user) return;
+          setError('Uploading image...');
+          const fileName = `${user.id}/${Date.now()}.jpg`;
+          const base64Data = result.assets[0].base64;
+          if (!base64Data) {
+            throw new Error('Failed to get image data');
+          }
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('photos')
+            .upload(fileName, decode(base64Data), {
+              contentType: 'image/jpeg',
+              upsert: true
+            });
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw new Error('Failed to upload image. Please try again.');
+          }
+          const { data: { publicUrl } } = supabase.storage
+            .from('photos')
+            .getPublicUrl(fileName);
+          setSelectedImage(publicUrl);
+          setTextInput(publicUrl);
+          setError('');
         }
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('photos')
-          .upload(fileName, decode(base64Data), {
-            contentType: 'image/jpeg',
-            upsert: true
-          });
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          throw new Error('Failed to upload image. Please try again.');
+        return;
+      }
+      // Not granted, request permission (shows system modal)
+      const { status: requestStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (requestStatus === 'granted') {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.1,
+          base64: true,
+        });
+        if (!result.canceled && result.assets[0]) {
+          if (!user) return;
+          setError('Uploading image...');
+          const fileName = `${user.id}/${Date.now()}.jpg`;
+          const base64Data = result.assets[0].base64;
+          if (!base64Data) {
+            throw new Error('Failed to get image data');
+          }
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('photos')
+            .upload(fileName, decode(base64Data), {
+              contentType: 'image/jpeg',
+              upsert: true
+            });
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw new Error('Failed to upload image. Please try again.');
+          }
+          const { data: { publicUrl } } = supabase.storage
+            .from('photos')
+            .getPublicUrl(fileName);
+          setSelectedImage(publicUrl);
+          setTextInput(publicUrl);
+          setError('');
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('photos')
-          .getPublicUrl(fileName);
-
-        setSelectedImage(publicUrl);
-        setTextInput(publicUrl);
-        setError('');
+      } else {
+        Alert.alert('Permission denied', 'Please enable photo access in your device settings to upload a profile picture.');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       setError('');
-      Alert.alert(
-        'Upload Failed',
-        'Failed to upload profile picture. Please try again.'
-      );
+      Alert.alert('Upload Failed', 'Failed to upload profile picture. Please try again.');
     }
   };
 

@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -144,38 +145,76 @@ export default function Profile() {
 
   const pickImage = async (source: 'camera' | 'library') => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'We need camera roll permissions to change your profile picture.');
+      // Check current permission status
+      const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (status === 'granted') {
+        let result;
+        if (source === 'camera') {
+          const { status: cameraStatus } = await ImagePicker.getCameraPermissionsAsync();
+          if (cameraStatus === 'granted') {
+            result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+          } else {
+            const { status: requestCameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+            if (requestCameraStatus === 'granted') {
+              result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.7,
+              });
+            } else {
+              Alert.alert('Permission denied', 'Please enable camera access in your device settings to take a profile picture.');
+              return;
+            }
+          }
+        } else {
+          result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+          });
+        }
+        if (!result.canceled && result.assets[0]) {
+          Alert.alert('Success', 'Profile picture updated! (Feature coming soon)');
+        }
         return;
       }
-
-      let result;
-      if (source === 'camera') {
-        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-        if (cameraStatus !== 'granted') {
-          Alert.alert('Permission denied', 'We need camera permissions to take a photo.');
-          return;
+      // Not granted, request permission (shows system modal)
+      const { status: requestStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (requestStatus === 'granted') {
+        let result;
+        if (source === 'camera') {
+          const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+          if (cameraStatus === 'granted') {
+            result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+          } else {
+            Alert.alert('Permission denied', 'Please enable camera access in your device settings to take a profile picture.');
+            return;
+          }
+        } else {
+          result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+          });
         }
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
+        if (!result.canceled && result.assets[0]) {
+          Alert.alert('Success', 'Profile picture updated! (Feature coming soon)');
+        }
       } else {
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
-      }
-
-      if (!result.canceled && result.assets[0]) {
-        // Here you would upload the image to storage and update the avatar_url
-        // For now, we'll just show a success message
-        Alert.alert('Success', 'Profile picture updated! (Feature coming soon)');
+        Alert.alert('Permission denied', 'Please enable photo access in your device settings to change your profile picture.');
       }
     } catch (error) {
       console.error('Error picking image:', error);

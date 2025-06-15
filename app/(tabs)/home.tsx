@@ -823,6 +823,15 @@ export default function Dashboard() {
     Linking.openURL('https://wt.ls/pact');
   };
 
+  useEffect(() => {
+    // Start fade-in animation when component mounts
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   if (loading) {
     return (
       <LinearGradient
@@ -904,7 +913,22 @@ export default function Dashboard() {
         end={{ x: 0, y: 1 }}
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
       >
-        <View style={styles.queueContent}>
+        <Animated.View 
+          style={[
+            styles.queueContent,
+            {
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Animated.View 
             style={[
               styles.queueIconWrapper,
@@ -929,7 +953,7 @@ export default function Dashboard() {
           </Animated.View>
           <Text style={styles.queueTitle}>Join the Waitlist</Text>
           <Text style={styles.queueSubtitle}>
-            We're currently at capacity, but you can join our waitlist to be among the first to know when spots open up!
+            We're currently pre-launch, join our waitlist to be among the first to be matched in a group.
           </Text>
           <TouchableOpacity 
             style={styles.queueButton}
@@ -947,9 +971,9 @@ export default function Dashboard() {
             </View>
           </TouchableOpacity>
           <Text style={styles.queueHint}>
-            Join now to secure your spot and get early access to our community.
+            Make sure to sign up with same email you used here.
           </Text>
-        </View>
+        </Animated.View>
       </LinearGradient>
     );
   }
