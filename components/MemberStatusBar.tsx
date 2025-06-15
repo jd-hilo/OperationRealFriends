@@ -150,7 +150,7 @@ const MemberStatusBar: React.FC<MemberStatusBarProps> = ({
                 ) : (
                   <>
                     <Users size={18} color="#fff" />
-                    <Text style={styles.leaveButtonText}>Leave Group ⚠️</Text>
+                    <Text style={styles.leaveButtonText}>Block User ⚠️</Text>
                   </>
                 )}
               </TouchableOpacity>
