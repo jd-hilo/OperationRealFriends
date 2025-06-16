@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, Animated, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, Animated, Dimensions, TouchableOpacity, Linking } from 'react-native';
 import { router } from 'expo-router';
 import Button from '../components/Button';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -84,6 +84,14 @@ export default function WelcomeScreen() {
     outputRange: ['0deg', '360deg']
   });
 
+  const handleTermsPress = () => {
+    Linking.openURL('https://pastoral-supply-662.notion.site/Pact-Terms-of-Service-2082cec59ddf8079aa96d12797702b92?source=copy_link');
+  };
+
+  const handlePrivacyPress = () => {
+    Linking.openURL('https://pastoral-supply-662.notion.site/Pact-Privacy-Policy-2082cec59ddf80fc8feaecb956cae20d?source=copy_link');
+  };
+
   return (
     <LinearGradient
       colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
@@ -156,6 +164,14 @@ export default function WelcomeScreen() {
           <Text style={styles.buttonText}>Get Started 👉</Text>
         </LinearGradient>
       </TouchableOpacity>
+      <View style={styles.termsContainer}>
+        <Text style={styles.termsText}>
+          By clicking Get Started, you agree to our{' '}
+          <Text style={styles.link} onPress={handleTermsPress}>Terms of Service</Text>
+          {' '}and{' '}
+          <Text style={styles.link} onPress={handlePrivacyPress}>Privacy Policy</Text>
+        </Text>
+      </View>
     </LinearGradient>
   );
 }
@@ -250,5 +266,20 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '700',
     fontSize: 20,
+  },
+  termsContainer: {
+    marginTop: -30,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    fontFamily: theme.typography.fontFamily.bodyRegular,
+  },
+  link: {
+    color: '#4B1AFF',
+    textDecorationLine: 'underline',
   },
 }); 

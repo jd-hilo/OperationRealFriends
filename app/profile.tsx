@@ -188,30 +188,30 @@ export default function Profile() {
       // Not granted, request permission (shows system modal)
       const { status: requestStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (requestStatus === 'granted') {
-        let result;
-        if (source === 'camera') {
-          const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      let result;
+      if (source === 'camera') {
+        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
           if (cameraStatus === 'granted') {
-            result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.7,
-            });
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.7,
+        });
           } else {
             Alert.alert('Permission denied', 'Please enable camera access in your device settings to take a profile picture.');
             return;
           }
-        } else {
-          result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.7,
-          });
-        }
-        if (!result.canceled && result.assets[0]) {
-          Alert.alert('Success', 'Profile picture updated! (Feature coming soon)');
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.7,
+        });
+      }
+      if (!result.canceled && result.assets[0]) {
+        Alert.alert('Success', 'Profile picture updated! (Feature coming soon)');
         }
       } else {
         Alert.alert('Permission denied', 'Please enable photo access in your device settings to change your profile picture.');
