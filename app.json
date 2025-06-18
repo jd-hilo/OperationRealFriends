@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
-      "buildNumber": "23",
+      "buildNumber": "24",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "We need access to your photos so you can upload a profile picture and personalize your account. Your photo helps your friends recognize you and makes your profile more fun!",

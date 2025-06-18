@@ -11,6 +11,7 @@ import {
   Alert,
   Easing,
   Linking,
+  AppState,
 } from 'react-native';
 import {
   Clock,
@@ -203,6 +204,7 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<any[]>([]);
   const [continentCount, setContinentCount] = useState(0);
   const [submissionsToCurrentPrompt, setSubmissionsToCurrentPrompt] = useState(0);
+  const [checkedIn, setCheckedIn] = useState(false);
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -832,6 +834,16 @@ export default function Dashboard() {
     }).start();
   }, []);
 
+  // Reset checkedIn when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setCheckedIn(false);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   if (loading) {
     return (
       <LinearGradient
@@ -1044,8 +1056,33 @@ export default function Dashboard() {
             subdescription={'A pack that tends to pick bold answers 💥'}
             members={group?.members || []}
             promptCount={group?.prompts?.length || 0}
-            mapComponent={<GroupMap userLocations={userLocations} />}
+            mapComponent={<GroupMap userLocations={userLocations} checkedIn={checkedIn} currentUserId={user?.id || ''} />}
           />
+          {!checkedIn && (
+            <View style={{ alignItems: 'center', marginTop: 8 }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: theme.colors.primary,
+                  borderRadius: 20,
+                  paddingVertical: 10,
+                  paddingHorizontal: 32,
+                  marginBottom: 4,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+                onPress={() => setCheckedIn(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Share Location</Text>
+              </TouchableOpacity>
+              <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', maxWidth: 220 }}>
+                Your location is only shown after you check in. It is not specific.
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.section}>
           <PromptCard
