@@ -12,6 +12,7 @@ import {
   Easing,
   Linking,
   AppState,
+  Modal,
 } from 'react-native';
 import {
   Clock,
@@ -24,6 +25,7 @@ import {
   Camera,
   Type,
   MapPin,
+  Info,
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -179,6 +181,33 @@ const countryToContinent = (country: string) => {
   return mapping[country] || country;
 };
 
+const personalityTypes = [
+  { 
+    type: 'The Explorer', 
+    icon: '🧭', 
+    description: 'Curious and adventurous, always seeking new experiences and ideas.',
+    depthExample: `Your responses reveal a natural inclination towards discovery and experimentation. You consistently show enthusiasm for venturing into unknown territories, whether in conversations, activities, or intellectual pursuits.
+
+Your thought patterns demonstrate remarkable adaptability and openness to new perspectives. You tend to approach challenges as opportunities for learning, showing a genuine excitement for understanding different viewpoints and methodologies.
+
+The way you process information indicates a strong drive for personal growth through experience. Your answers suggest you're most energized when pushing boundaries and challenging conventional wisdom, making you a true Explorer at heart.`
+  },
+  { type: 'The Connector', icon: '🤝', description: 'Warm and outgoing, thrives on building relationships and bringing people together.' },
+  { type: 'The Organizer', icon: '📋', description: 'Detail-oriented and structured, excels at planning and keeping projects on track.' },
+  { type: 'The Thinker', icon: '🤔', description: 'Reflective and analytical, enjoys deep conversations and solving complex problems.' },
+  { type: 'The Achiever', icon: '🏆', description: 'Goal-driven and energetic, constantly setting and reaching new milestones.' },
+  { type: 'The Supporter', icon: '🤗', description: 'Compassionate and dependable, offers encouragement and a listening ear.' },
+  { type: 'The Visionary', icon: '🌟', description: 'Imaginative and future-focused, loves brainstorming big ideas and possibilities.' },
+  { type: 'The Realist', icon: '⚖️', description: 'Practical and grounded, values clear plans and tangible results.' },
+  { type: 'The Innovator', icon: '💡', description: 'Creative and bold, often comes up with unconventional solutions.' },
+  { type: 'The Reflector', icon: '🪞', description: 'Quiet and introspective, gains insight through observation and self-reflection.' },
+  { type: 'The Strategist', icon: '🗺️', description: 'Logical and forward-thinking, maps out pathways to success with precision.' },
+  { type: 'The Motivator', icon: '🚀', description: 'Enthusiastic and inspiring, sparks energy and optimism in others.' },
+  { type: 'The Analyst', icon: '📊', description: 'Methodical and data-driven, relies on facts and evidence to guide decisions.' },
+  { type: 'The Enthusiast', icon: '🎉', description: 'Spontaneous and fun-loving, brings excitement and positivity to every situation.' },
+  { type: 'The Harmonizer', icon: '🕊️', description: 'Peacemaking and cooperative, excels at resolving conflicts and fostering teamwork.' },
+];
+
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
@@ -205,6 +234,12 @@ export default function Dashboard() {
   const [continentCount, setContinentCount] = useState(0);
   const [submissionsToCurrentPrompt, setSubmissionsToCurrentPrompt] = useState(0);
   const [checkedIn, setCheckedIn] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [userData, setUserData] = useState<{
+    personalitytype: string | null;
+    personalitydescription: string | null;
+    personalitydepth: string | null;
+  } | null>(null);
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -281,7 +316,7 @@ export default function Dashboard() {
       console.log('[fetchData] Checking if user exists in DB');
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
-        .select('*')
+        .select('*, personalitytype, personalitydescription, personalitydepth')
         .eq('id', user.id)
         .single();
       console.log('[fetchData] User check result:', { existingUser, userCheckError });
@@ -289,6 +324,15 @@ export default function Dashboard() {
       if (userCheckError && userCheckError.code !== 'PGRST116') {
         console.error('[fetchData] Error checking user:', userCheckError);
         throw userCheckError;
+      }
+
+      // Store user data for the modal
+      if (existingUser) {
+        setUserData({
+          personalitytype: existingUser.personalitytype || null,
+          personalitydescription: existingUser.personalitydescription || null,
+          personalitydepth: existingUser.personalitydepth || null
+        });
       }
 
       // If user doesn't exist, create them
@@ -985,6 +1029,59 @@ export default function Dashboard() {
           <Text style={styles.queueHint}>
             Make sure to sign up with same email you used here.
           </Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setShowResultsModal(true)}
+          >
+            <MaterialCommunityIcons name="account-circle" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Modal
+            visible={showResultsModal}
+            transparent
+            animationType="none"
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <ScrollView 
+                  contentContainerStyle={{ paddingHorizontal: 20 }}
+                  showsVerticalScrollIndicator={true}
+                >
+                  <Text style={styles.modalTitle}>Your Results</Text>
+                  {userData?.personalitytype && (
+                    <>
+                      <Text style={styles.personalityType}>
+                        {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
+                      </Text>
+                      <Text style={styles.description}>{userData.personalitydescription}</Text>
+                      
+                      {userData.personalitydepth && (
+                        <View style={styles.depthContainer}>
+                          <Text style={styles.depthTitle}>In Depth Analysis</Text>
+                          <Text style={styles.depthText}>{userData.personalitydepth}</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </ScrollView>
+
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowResultsModal(false)}
+                  >
+                    <Text style={styles.closeButtonText}>Close</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.closeButton, { backgroundColor: '#FF4B4B' }]}
+                    onPress={handleSignOut}
+                  >
+                    <Text style={styles.closeButtonText}>Sign Out</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </Animated.View>
       </LinearGradient>
     );
@@ -1595,5 +1692,85 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     fontWeight: '700',
     fontSize: theme.typography.fontSize.md + 1,
+  },
+  iconButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '80%',
+    paddingVertical: 20,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#808080',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  personalityType: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4B1AFF',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  depthContainer: {
+    backgroundColor: '#F8F9FE',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  depthTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4B1AFF',
+    marginBottom: 12,
+  },
+  depthText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    gap: 10,
+  },
+  closeButton: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: '#4B1AFF',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

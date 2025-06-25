@@ -38,7 +38,7 @@
     "expo-task-manager": "~11.7.3",
     "expo-web-browser": "~12.8.2",
     "lucide-react-native": "^0.303.0",
-    "openai": "^4.103.0",
+    "openai": "^4.104.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.73.6",

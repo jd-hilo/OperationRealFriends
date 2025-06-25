@@ -1,13 +1,17 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image, Animated, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../constants/theme';
+import { useAuth } from '../lib/auth';
+import Button from '../components/Button';
 
 export default function QueueScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
     // Continuous rotation animation
@@ -25,14 +29,25 @@ export default function QueueScreen() {
     outputRange: ['0deg', '360deg']
   });
 
-  const handleJoinWaitlist = () => {
-    Linking.openURL('https://wt.ls/pact');
+  const handleJoinQueue = () => {
+    setIsJoining(true);
+    // Add queue joining logic here
+    router.replace('/(tabs)/home');
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/welcome');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
     <LinearGradient
-      colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-      locations={[0, 0.5192, 1]}
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={styles.container}
@@ -42,29 +57,21 @@ export default function QueueScreen() {
           <Image source={require('../assets/globe.png')} style={styles.globe} />
           <Image source={require('../assets/logo.png')} style={styles.logo} />
         </Animated.View>
-        <Text style={styles.title}>Join the Waitlist</Text>
-        <Text style={styles.subtitle}>
-          We're currently at capacity, but you can join our waitlist to be among the first to know when spots open up!
+        <Text style={styles.title}>Ready to Connect?</Text>
+        <Text style={styles.description}>
+          Join our waitlist to be matched with a group of like-minded individuals.
         </Text>
-        <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
-        <Text style={styles.hint}>
-          Join now to secure your spot and get early access to our community.
-        </Text>
-        
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={handleJoinWaitlist}
+        <Button
+          onPress={handleJoinQueue}
+          title="Join Waitlist"
+          loading={isJoining}
+          style={styles.joinButton}
+        />
+        <TouchableOpacity
+          onPress={handleSignOut}
+          style={styles.signOutButton}
         >
-          <View style={styles.buttonGradient}>
-            <LinearGradient
-              colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.textGradient}
-            >
-              <Text style={styles.buttonText}>Join Waitlist</Text>
-            </LinearGradient>
-          </View>
+          <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -77,8 +84,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: theme.spacing.xl,
   },
   globeWrapper: {
@@ -102,59 +109,29 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   title: {
-    fontSize: theme.typography.fontSize.xxl,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#222',
     marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
-  subtitle: {
-    fontSize: theme.typography.fontSize.lg,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-    lineHeight: 24,
-    opacity: 0.9,
-  },
-  spinner: {
-    marginBottom: theme.spacing.xl,
-  },
-  hint: {
+  description: {
     fontSize: theme.typography.fontSize.md,
-    color: '#FFFFFF',
+    color: '#666',
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
-    lineHeight: 22,
-    opacity: 0.8,
   },
-  button: {
-    width: 280,
-    height: 62,
-    borderRadius: 51,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 25.1,
-    elevation: 6,
-  },
-  buttonGradient: {
+  joinButton: {
     width: '100%',
-    height: '100%',
-    borderRadius: 51,
-    alignItems: 'center',
-    justifyContent: 'center',
+    maxWidth: 280,
   },
-  textGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  signOutButton: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.sm,
   },
-  buttonText: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
+  signOutText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#666',
+    textDecorationLine: 'underline',
   },
 });

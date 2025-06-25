@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import { theme } from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { determinePersonalityType } from '../lib/personality';
 
 interface Question {
   id: number;
@@ -284,7 +285,21 @@ export default function QuizScreen() {
           throw profileError;
         }
 
-        router.replace('/(tabs)/home');
+        // Try to determine personality type, but continue even if it fails
+        if (user?.id) {
+          try {
+            await determinePersonalityType(user.id);
+            // If personality determination succeeds, go to results page
+            router.replace('/results');
+          } catch (error) {
+            console.error('Error determining personality type:', error);
+            // If personality determination fails, go directly to queue
+            router.replace('/queue');
+          }
+        } else {
+          // If no user ID, go directly to queue
+          router.replace('/queue');
+        }
       }
     } catch (err: any) {
       console.error('Error in handleAnswer:', err);

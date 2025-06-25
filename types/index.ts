@@ -20,6 +20,10 @@ export interface User {
   preferred_name?: string;
   bio?: string;
   quiz_answers?: QuizAnswers;
+  personalitytype?: string;
+  personalitydescription?: string;
+  personalitydepth?: string;
+  personalitymatch?: string;
 }
 
 export interface QuizAnswers {
