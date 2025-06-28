@@ -133,7 +133,45 @@ Quiz Answers:
     }
 
     // Generate personalized depth explanation
-    const depthPrompt = `Based on the following quiz answers, write 3 concise paragraphs explaining why this person matches the personality type "${personalityType}". Each paragraph should focus on different aspects of their responses that led to this conclusion. Make it personal and specific to their answers.
+    const depthPrompt = `Based on the following quiz answers, write a detailed personality analysis in second person (using "you" and "your") following this exact structure:
+
+1. Overview
+[2-3 sentences that paint the big picture of your core motivations, worldview, and interaction style.]
+
+2. Key Traits
+• [Trait 1 Name]: [Short description of how it shows up in you]
+• [Trait 2 Name]: [Short description of how it shows up in you]
+• [Trait 3 Name]: [Short description of how it shows up in you]
+
+3. Strengths
+• [Strength A]: [Why it matters for you, with an example context]
+• [Strength B]: [Why it matters for you, with an example context]
+• [Strength C]: [Why it matters for you, with an example context]
+
+4. Growth Areas
+• [Area A]: [Your potential blind spot or challenge]
+• [Area B]: [Your potential blind spot or challenge]
+• [Area C]: [Your potential blind spot or challenge]
+
+5. Ideal Accountability Partner(s)
+• Preferred Check-in Style: [What works best for you]
+• Complementary Types: [1-2 types that pair well with you]
+• Matching Tips: [What to look for in a partner]
+
+6. Communication Style
+• Tone: [What resonates with you]
+• Frequency: [Your ideal check-in cadence]
+• Channel: [Your preferred communication method]
+
+7. Motivation Triggers
+• [Driver A]: [What energizes you]
+• [Driver B]: [What energizes you]
+• [Driver C]: [What energizes you]
+
+8. Actionable Tips
+1. [Concrete habit or ritual you can adopt]
+2. [Another specific action you can take]
+3. [A third practical step for you]
 
 Quiz Answers:
 1. Outgoing and sociable: ${answers.question1}
@@ -154,7 +192,7 @@ Quiz Answers:
       messages: [{ role: "user", content: depthPrompt }],
       model: "gpt-4-turbo-preview",
       temperature: 0.8,
-      max_tokens: 500,
+      max_tokens: 1000,
     });
 
     const personalityDepth = depthCompletion.choices[0].message.content?.trim();

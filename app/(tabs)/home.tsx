@@ -638,6 +638,7 @@ export default function Dashboard() {
   
   const handleSignOut = async () => {
     try {
+      setShowResultsModal(false); // Close the modal first
       await signOut();
       router.replace('/(auth)/login');
     } catch (error) {
@@ -1038,29 +1039,109 @@ export default function Dashboard() {
           <Modal
             visible={showResultsModal}
             transparent
-            animationType="none"
+            animationType="fade"
           >
             <View style={styles.modalContainer}>
               <View style={styles.modalContent}>
                 <ScrollView 
-                  contentContainerStyle={{ paddingHorizontal: 20 }}
-                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.modalScrollContent}
+                  showsVerticalScrollIndicator={false}
                 >
-                  <Text style={styles.modalTitle}>Your Results</Text>
-                  {userData?.personalitytype && (
-                    <>
-                      <Text style={styles.personalityType}>
-                        {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
-                      </Text>
-                      <Text style={styles.description}>{userData.personalitydescription}</Text>
-                      
-                      {userData.personalitydepth && (
-                        <View style={styles.depthContainer}>
-                          <Text style={styles.depthTitle}>In Depth Analysis</Text>
-                          <Text style={styles.depthText}>{userData.personalitydepth}</Text>
-                        </View>
+                  {/* Personality Type Card */}
+                  <View style={styles.modalCard}>
+                    <Text style={styles.modalCardTitle}>Your Personality Type</Text>
+                    <Text style={styles.modalSubtitle}>Here's what makes you unique! 🌟</Text>
+                    <View style={styles.modalTypeBox}>
+                      {userData?.personalitytype && (
+                        <>
+                          <Text style={styles.modalPersonalityType}>
+                            {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
+                          </Text>
+                          <Text style={styles.modalDescription}>{userData.personalitydescription}</Text>
+                        </>
                       )}
-                    </>
+                    </View>
+                  </View>
+
+                  {/* In-Depth Analysis Card */}
+                  {userData?.personalitydepth && (
+                    <View style={styles.modalCard}>
+                      <Text style={styles.modalCardTitle}>In-Depth Analysis</Text>
+                      <Text style={styles.modalSubtitle}>A deeper look into your personality 🔍</Text>
+                      <View style={styles.modalDepthBox}>
+                        {userData.personalitydepth.split('\n\n').map((section, index) => {
+                          if (!section.trim()) return null;
+
+                          const lines = section.split('\n');
+                          
+                          // Check if this is a section with ### title
+                          if (lines[0].startsWith('###')) {
+                            const title = lines[0].replace(/^###\s*/, '').trim();
+                            const content = lines.slice(1);
+                            
+                            return (
+                              <View key={index} style={styles.modalSection}>
+                                <Text style={styles.modalSectionTitle}>{title}</Text>
+                                {content.map((line, i) => {
+                                  if (!line.trim()) return null;
+
+                                  // Handle bullet points
+                                  if (line.trim().startsWith('•')) {
+                                    const [bulletPoint, ...description] = line.trim().split(':');
+                                    return (
+                                      <View key={i} style={styles.modalBulletPoint}>
+                                        <Text style={styles.modalBulletPointTitle}>
+                                          {bulletPoint.replace('•', '').trim()}
+                                        </Text>
+                                        {description.length > 0 && (
+                                          <Text style={styles.modalBulletPointContent}>
+                                            {description.join(':').trim()}
+                                          </Text>
+                                        )}
+                                      </View>
+                                    );
+                                  }
+                                  
+                                  // Handle numbered points
+                                  if (line.trim().match(/^\d+\./)) {
+                                    const [number, ...content] = line.trim().split('.');
+                                    return (
+                                      <View key={i} style={styles.modalNumberedPoint}>
+                                        <Text style={styles.modalNumberCircle}>{number}</Text>
+                                        <Text style={styles.modalNumberedContent}>
+                                          {content.join('.').trim()}
+                                        </Text>
+                                      </View>
+                                    );
+                                  }
+
+                                  // Regular line within a section
+                                  return (
+                                    <Text key={i} style={styles.modalSectionContent}>
+                                      {line.trim()}
+                                    </Text>
+                                  );
+                                })}
+                              </View>
+                            );
+                          }
+                          
+                          // Regular paragraph
+                          return (
+                            <View key={index} style={styles.modalParagraphSection}>
+                              {lines.map((line, i) => {
+                                if (!line.trim()) return null;
+                                return (
+                                  <Text key={i} style={styles.modalParagraphText}>
+                                    {line.trim()}
+                                  </Text>
+                                );
+                              })}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
                   )}
                 </ScrollView>
 
@@ -1708,45 +1789,131 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 32,
     width: '100%',
-    maxHeight: '80%',
-    paddingVertical: 20,
+    maxHeight: '90%',
+    paddingVertical: 24,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#808080',
-    marginBottom: 16,
+  modalScrollContent: {
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 32,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalCardTitle: {
+    fontWeight: '700',
+    fontSize: 20,
+    color: '#111',
+    marginBottom: 2,
     textAlign: 'center',
   },
-  personalityType: {
+  modalSubtitle: {
+    fontWeight: '400',
+    fontSize: 15,
+    color: '#444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalTypeBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  modalPersonalityType: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4B1AFF',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  depthContainer: {
-    backgroundColor: '#F8F9FE',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  depthTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4B1AFF',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  depthText: {
+  modalDescription: {
+    fontSize: 16,
+    color: '#222',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  modalDepthBox: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 12,
+    width: '100%',
+  },
+  modalSection: {
+    marginBottom: 20,
+  },
+  modalParagraphSection: {
+    marginBottom: 16,
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  modalSectionContent: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  modalParagraphText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  modalBulletPoint: {
+    flexDirection: 'column',
+    marginLeft: 16,
+    marginBottom: 12,
+  },
+  modalBulletPointTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  modalBulletPointContent: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  modalNumberedPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginLeft: 16,
+    marginBottom: 12,
+  },
+  modalNumberCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4B1AFF',
+    color: 'white',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginRight: 12,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalNumberedContent: {
+    flex: 1,
     fontSize: 16,
     color: '#333',
     lineHeight: 24,
