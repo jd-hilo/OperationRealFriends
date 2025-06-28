@@ -67,10 +67,10 @@ export default function QueueScreen() {
           loading={isJoining}
           style={styles.joinButton}
         />
-        <TouchableOpacity
+        <TouchableOpacity 
           onPress={handleSignOut}
           style={styles.signOutButton}
-        >
+            >
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
