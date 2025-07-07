@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
       "buildNumber": "25",
+       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "We need access to your photos so you can upload a profile picture and personalize your account. Your photo helps your friends recognize you and makes your profile more fun!",
@@ -44,7 +45,8 @@
       }
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-apple-authentication"
     ],
     "scheme": "pact"
   }

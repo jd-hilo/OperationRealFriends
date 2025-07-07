@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './supabase';
-import { Session } from '@supabase/supabase-js';
-import { User } from '../types';
-
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "./supabase";
+import { Session } from "@supabase/supabase-js";
+import { User } from "../types";
+import * as AppleAuthentication from "expo-apple-authentication";
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -10,6 +10,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  appSignIn: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,9 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // First try to fetch the profile
       const { data: existingProfile, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
+        .from("users")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       // If profile exists, return it
@@ -34,40 +35,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // If no profile exists, create one
-      const { error: insertError } = await supabase
-        .from('users')
-        .upsert([
-          {
-            id: userId,
-            email: email,
-            created_at: new Date().toISOString(),
-            has_completed_quiz: false,
-            submitted: false,
-            last_submission_date: null,
-            current_group_id: null
-          }
-        ]);
+      const { error: insertError } = await supabase.from("users").upsert([
+        {
+          id: userId,
+          email: email,
+          created_at: new Date().toISOString(),
+          has_completed_quiz: false,
+          submitted: false,
+          last_submission_date: null,
+          current_group_id: null,
+        },
+      ]);
 
       if (insertError) {
-        console.error('Error creating user record:', insertError);
+        console.error("Error creating user record:", insertError);
         throw insertError;
       }
 
       // Fetch the newly created profile
       const { data: newProfile, error: newFetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
+        .from("users")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       if (newFetchError) {
-        console.error('Error fetching new user profile:', newFetchError);
+        console.error("Error fetching new user profile:", newFetchError);
         throw newFetchError;
       }
 
       return newProfile;
     } catch (error) {
-      console.error('Error in ensureUserProfile:', error);
+      console.error("Error in ensureUserProfile:", error);
       throw error;
     }
   };
@@ -76,13 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setSession(session);
       if (session?.user) {
-        const profile = await ensureUserProfile(session.user.id, session.user.email || '');
+        const profile = await ensureUserProfile(
+          session.user.id,
+          session.user.email || ""
+        );
         setUser(profile);
       } else {
         setUser(null);
       }
     } catch (error) {
-      console.error('Error handling auth state change:', error);
+      console.error("Error handling auth state change:", error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -96,7 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Subscribe to auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       handleAuthStateChange(session);
     });
 
@@ -105,27 +109,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (error) throw error;
     } catch (error) {
-      console.error('Error in signIn:', error);
+      console.error("Error in signIn:", error);
       throw error;
     }
   };
 
   const signUp = async (email: string, password: string) => {
     try {
-      console.log('Attempting sign up with:', { email, passwordLength: password.length });
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      console.log("Attempting sign up with:", {
+        email,
+        passwordLength: password.length,
+      });
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
-          emailRedirectTo: 'https://pgnzcvlvyomsfvpiukqj.supabase.co/auth/v1/verify'
-        }
+          emailRedirectTo:
+            "https://pgnzcvlvyomsfvpiukqj.supabase.co/auth/v1/verify",
+        },
       });
-      console.log('Sign up response:', { data, error });
+      console.log("Sign up response:", { data, error });
       if (error) {
-        console.error('Sign up error:', error);
+        console.error("Sign up error:", error);
         throw error;
       }
 
@@ -135,8 +146,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(profile);
       }
     } catch (error) {
-      console.error('Error in signUp:', error);
+      console.error("Error in signUp:", error);
       throw error;
+    }
+  };
+  const appSignIn = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      // Sign in via Supabase Auth.
+      if (credential.identityToken) {
+        const {
+          error,
+          data: { user },
+        } = await supabase.auth.signInWithIdToken({
+          provider: "apple",
+          token: credential.identityToken,
+        });
+
+        if (!error) {
+          if (user) {
+            const profile = await ensureUserProfile(user.id, user?.email);
+            setUser(profile);
+          }
+        }
+      } else {
+        throw new Error("No identityToken.");
+      }
+    } catch (e) {
+      console.log("error :", e);
     }
   };
 
@@ -145,13 +187,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
-      console.error('Error in signOut:', error);
+      console.error("Error in signOut:", error);
       throw error;
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, session, loading, signIn, signUp, signOut, appSignIn }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -160,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}
