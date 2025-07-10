@@ -67,7 +67,7 @@ export default function Profile() {
           onPress: async () => {
             try {
               await signOut();
-              router.replace('/(auth)/login');
+              router.replace('/(auth)/signup');
             } catch (error) {
               console.error('Error signing out:', error);
             }

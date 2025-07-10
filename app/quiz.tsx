@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../lib/auth';
@@ -257,20 +258,7 @@ export default function QuizScreen() {
               question11: newAnswers[10],
               question12: newAnswers[11],
               question13: newAnswers[12]
-            }
-          })
-          .eq('id', user?.id);
-
-        if (quizError) {
-          console.error('Error saving quiz answers:', quizError);
-          throw quizError;
-        }
-
-        // Then save the user profile data
-        const { error: profileError } = await supabase
-          .from('users')
-          .update({
-            has_completed_quiz: true,
+            },
             preferred_name: newAnswers[13],
             location: newAnswers[14],
             preferred_language: newAnswers[15],
@@ -280,30 +268,28 @@ export default function QuizScreen() {
           })
           .eq('id', user?.id);
 
-        if (profileError) {
-          console.error('Error updating user profile:', profileError);
-          throw profileError;
+        if (quizError) {
+          console.error('Error saving quiz answers:', quizError);
+          setError('Failed to save quiz answers. Please try again.');
+          return;
         }
 
-        // Try to determine personality type, but continue even if it fails
+        // Start personality determination before routing
         if (user?.id) {
           try {
+            // Route to loading page first
+            router.replace('/quiz-loading');
+            // Then start personality determination
             await determinePersonalityType(user.id);
-            // If personality determination succeeds, go to results page
-            router.replace('/results');
           } catch (error) {
             console.error('Error determining personality type:', error);
-            // If personality determination fails, go directly to queue
-            router.replace('/queue');
+            // Even if there's an error, stay on loading page as it will handle retries
           }
-        } else {
-          // If no user ID, go directly to queue
-          router.replace('/queue');
         }
       }
-    } catch (err: any) {
-      console.error('Error in handleAnswer:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Error in handleAnswer:', error);
+      setError('An error occurred. Please try again.');
     }
   };
 
@@ -338,75 +324,120 @@ export default function QuizScreen() {
       // Check current permission status
       const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
       if (status === 'granted') {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.1,
-        base64: true,
-      });
-      if (!result.canceled && result.assets[0]) {
-        if (!user) return;
-        setError('Uploading image...');
-        const fileName = `${user.id}/${Date.now()}.jpg`;
-        const base64Data = result.assets[0].base64;
-        if (!base64Data) {
-          throw new Error('Failed to get image data');
-        }
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('photos')
-          .upload(fileName, decode(base64Data), {
-            contentType: 'image/jpeg',
-            upsert: true
-          });
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          throw new Error('Failed to upload image. Please try again.');
-        }
-        const { data: { publicUrl } } = supabase.storage
-          .from('photos')
-          .getPublicUrl(fileName);
-        setSelectedImage(publicUrl);
-        setTextInput(publicUrl);
-        setError('');
-        }
-        return;
-      }
-      // Not granted, request permission (shows system modal)
-      const { status: requestStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (requestStatus === 'granted') {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: false,
-          quality: 0.1,
-          base64: true,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
         });
+
         if (!result.canceled && result.assets[0]) {
           if (!user) return;
+          setError('Processing image...');
+
+          // Manipulate the image
+          const manipulatedImage = await ImageManipulator.manipulateAsync(
+            result.assets[0].uri,
+            [
+              { resize: { width: 800, height: 800 } },
+              { crop: { originX: 0, originY: 0, width: 800, height: 800 } }
+            ],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+
+          if (!manipulatedImage.base64) {
+            throw new Error('Failed to process image');
+          }
+
           setError('Uploading image...');
           const fileName = `${user.id}/${Date.now()}.jpg`;
-          const base64Data = result.assets[0].base64;
-          if (!base64Data) {
-            throw new Error('Failed to get image data');
-          }
+          
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('photos')
-            .upload(fileName, decode(base64Data), {
+            .upload(fileName, decode(manipulatedImage.base64), {
               contentType: 'image/jpeg',
               upsert: true
             });
+
           if (uploadError) {
             console.error('Upload error:', uploadError);
             throw new Error('Failed to upload image. Please try again.');
           }
+
           const { data: { publicUrl } } = supabase.storage
             .from('photos')
             .getPublicUrl(fileName);
+
+          setSelectedImage(publicUrl);
+          setTextInput(publicUrl);
+          setError('');
+        }
+        return;
+      }
+
+      // Not granted, request permission
+      const { status: requestStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (requestStatus === 'granted') {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+          if (!user) return;
+          setError('Processing image...');
+
+          // Manipulate the image
+          const manipulatedImage = await ImageManipulator.manipulateAsync(
+            result.assets[0].uri,
+            [
+              { resize: { width: 800, height: 800 } },
+              { crop: { originX: 0, originY: 0, width: 800, height: 800 } }
+            ],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+
+          if (!manipulatedImage.base64) {
+            throw new Error('Failed to process image');
+          }
+
+          setError('Uploading image...');
+          const fileName = `${user.id}/${Date.now()}.jpg`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('photos')
+            .upload(fileName, decode(manipulatedImage.base64), {
+              contentType: 'image/jpeg',
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw new Error('Failed to upload image. Please try again.');
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('photos')
+            .getPublicUrl(fileName);
+
           setSelectedImage(publicUrl);
           setTextInput(publicUrl);
           setError('');
         }
       } else {
-        Alert.alert('Permission denied', 'Please enable photo access in your device settings to upload a profile picture.');
+        Alert.alert(
+          'Permission denied', 
+          'Please enable photo access in your device settings to upload a profile picture.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => Platform.OS === 'ios' ? Linking.openURL('app-settings:') : Linking.openSettings() 
+            }
+          ]
+        );
       }
     } catch (error) {
       console.error('Error uploading image:', error);

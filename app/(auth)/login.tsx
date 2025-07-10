@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { useAuth } from '../../lib/auth';
-import Button from '../../components/Button';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
+import { router } from "expo-router";
+import { useAuth } from "../../lib/auth";
+import Button from "../../components/Button";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { signIn } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     try {
-      setError('');
+      setError("");
       await signIn(email, password);
     } catch (err: any) {
       setError(err.message);
@@ -33,19 +40,18 @@ export default function Login() {
           keyboardType="email-address"
           placeholderTextColor="#999"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#999"
-        />
-        <Button
-          title="Log In"
-          onPress={handleLogin}
-        />
-        <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+        {showPassword && (
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#999"
+          />
+        )}
+        <Button title="Log In" onPress={handleLogin} />
+        <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
           <Text style={styles.link}>Don't have an account? Sign up</Text>
         </TouchableOpacity>
       </View>
@@ -56,61 +62,61 @@ export default function Login() {
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
-    backgroundColor: '#F7F9FE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#F7F9FE",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
   card: {
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     borderRadius: 32,
     padding: 32,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: '900',
-    color: '#111',
-    textAlign: 'center',
+    fontWeight: "900",
+    color: "#111",
+    textAlign: "center",
     marginBottom: 24,
     letterSpacing: 1,
   },
   input: {
-    width: '100%',
-    backgroundColor: '#fff',
+    width: "100%",
+    backgroundColor: "#fff",
     borderRadius: 24,
     padding: 18,
     fontSize: 16,
-    color: '#222',
+    color: "#222",
     marginBottom: 18,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   error: {
-    color: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    color: "#EF4444",
+    backgroundColor: "#FEF2F2",
     padding: 10,
     borderRadius: 12,
     marginBottom: 16,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
     fontSize: 16,
-    width: '100%',
+    width: "100%",
   },
   link: {
-    color: '#1877FF',
-    textAlign: 'center',
+    color: "#1877FF",
+    textAlign: "center",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 24,
   },
-}); 
+});
