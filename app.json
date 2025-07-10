@@ -48,6 +48,12 @@
       "expo-router",
       "expo-apple-authentication"
     ],
-    "scheme": "pact"
+    "scheme": "pact",
+    "fonts": [
+      {
+        "asset": "./assets/fonts/PlanetComic.ttf",
+        "family": "PlanetComic"
+      }
+    ]
   }
 }

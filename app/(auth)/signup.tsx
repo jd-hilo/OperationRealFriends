@@ -5,12 +5,17 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Image,
+  Animated,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import Button from "../../components/Button";
 import * as AppleAuthentication from "expo-apple-authentication";
 import EmailVerificationModal from "components/emailVerificationModal";
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const isValidEmail = (email: string) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -22,6 +27,9 @@ export default function SignUp() {
   const [otp, setOTP] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const insets = useSafeAreaInsets();
+  
   const {
     signUp,
     appSignIn,
@@ -30,8 +38,19 @@ export default function SignUp() {
     handleVerifyOTP,
     signInOTP,
     showOTP,
+    setShowOTP,
   } = useAuth();
+  
   const PASSWORD_EMAILS = ["apple@test.com", "jd@sull.com", "jd@sull1.com"];
+  
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   const checkOTPorPassword = () => {
     if (PASSWORD_EMAILS.includes(email.toLowerCase())) {
       setShowPassword(true);
@@ -39,6 +58,7 @@ export default function SignUp() {
     }
     signInOTP(email);
   };
+
   const handleSignUp = async () => {
     try {
       setError("");
@@ -57,89 +77,96 @@ export default function SignUp() {
   };
 
   return (
-    <View style={styles.bg}>
-      {/* <Image source={require('../../assets/logo.png')} style={styles.logo} /> */}
-      <View style={styles.card}>
-        <Text style={styles.title}>Enter email</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          placeholderTextColor="#999"
-        />
-        {/* <View style={{}}>
-          <Typography variant="h1" style={styles.stepTitle}>
-            verify your email
-          </Typography>
-          <Typography variant="body" style={styles.stepSubtitle}>
-            enter the 6-digit code we sent to {email}
-          </Typography>
-          <View style={styles.otpContainer}>
-            <TextInput
-              value={otp}
-              onChangeText={setOTP}
-              placeholder="000000"
-              keyboardType="number-pad"
-              maxLength={6}
-              style={styles.input}
-              placeholderTextColor="#8A8E8F"
-            />
-            {otpTimer > 0 ? (
-              <Typography variant="body" style={styles.resendText}>
-                resend code in {otpTimer}s
-              </Typography>
-            ) : (
-              <TouchableOpacity
-                onPress={() => handleVerifyOTP(email, otp)}
-                disabled={loading}
-              >
-                <Typography variant="body" style={styles.resendLink}>
-                  resend code
-                </Typography>
-              </TouchableOpacity>
-            )}
-          </View>
-          <TouchableOpacity
-            onPress={() => handleVerifyOTP(email, otp)}
-            disabled={loading}
-          >
-            <Typography variant="body" style={styles.resendLink}>
-              Verify
-            </Typography>
-          </TouchableOpacity>
-        </View> */}
-
-        {showPassword && (
+    <LinearGradient
+      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+      locations={[0, 0.4808, 0.9904]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <Image source={require('../../assets/logo.png')} style={styles.logo} />
+        
+        <View style={styles.card}>
+          <Text style={styles.title}>Enter your email</Text>
+          <Text style={styles.subtitle}>We'll send you a verification code</Text>
+          
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          
           <TextInput
             style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="new-password"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
             placeholderTextColor="#999"
           />
-        )}
-        {!showPassword && (
-          <Button title="Continue" onPress={checkOTPorPassword} />
-        )}
-        {showPassword && <Button title="Sign Up" onPress={handleSignUp} />}
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-          cornerRadius={24}
-          style={styles.appleButton}
-          onPress={async () => {appSignIn()}}
-        />
-        <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-          <Text style={styles.link}>Already have an account? Log in</Text>
-        </TouchableOpacity>
-      </View>
+
+          {showPassword && (
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="new-password"
+              placeholderTextColor="#999"
+            />
+          )}
+
+          {!showPassword && (
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={checkOTPorPassword}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.buttonText}>Continue</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {showPassword && (
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={handleSignUp}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.buttonText}>Sign Up</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={24}
+            style={styles.appleButton}
+            onPress={async () => {appSignIn()}}
+          />
+
+          <TouchableOpacity 
+            onPress={() => router.push("/(auth)/login")}
+            style={styles.linkButton}
+          >
+            <Text style={styles.link}>Already have an account? Log in</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
       <EmailVerificationModal
         visible={showOTP}
         email={email}
@@ -148,198 +175,32 @@ export default function SignUp() {
         otpTimer={otpTimer}
         handleVerifyOTP={handleVerifyOTP}
         loading={loading}
-        onClose={() => {}}
+        onClose={() => setShowOTP(false)}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: {
+  container: {
     flex: 1,
-    backgroundColor: "#F7F9FE",
+  },
+  content: {
+    flex: 1,
     alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 20,
-  },
-  otpContainer: {
-    width: "100%",
-    alignItems: "center",
-  },
-  resendText: {
-    marginTop: 16,
-    color: "#8A8E8F",
-    fontSize: 14,
-    fontFamily: "Nunito",
-  },
-  stepContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepTitle: {
-    fontSize: 32,
-    fontFamily: "Nunito",
-    fontWeight: "700",
-    color: "#333A3C",
-    marginBottom: 8,
-    textAlign: "center",
-    textTransform: "lowercase",
-  },
-  stepSubtitle: {
-    fontSize: 16,
-    fontFamily: "Nunito",
-    color: "#8A8E8F",
-    textAlign: "center",
-    marginBottom: 32,
-    textTransform: "lowercase",
-  },
-  input: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 18,
-    fontSize: 16,
-    color: "#222",
-    marginBottom: 18,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    fontWeight: "500",
-    fontFamily: "Nunito",
-    textTransform: "lowercase",
-  },
-  collegeScrollView: {
-    width: "100%",
-    maxHeight: 400,
-  },
-  collegeScrollContent: {
-    paddingBottom: 16,
-  },
-  collegeContainer: {
-    width: "100%",
-  },
-  collegeOption: {
-    backgroundColor: "#F8F8F8",
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  selectedCollege: {
-    backgroundColor: "#FFEFB4",
-  },
-  collegeText: {
-    fontSize: 16,
-    fontFamily: "Nunito",
-    color: "#333A3C",
-  },
-  selectedCollegeText: {
-    fontWeight: "600",
-  },
-  reviewContainer: {
-    backgroundColor: "#F8F8F8",
-    borderRadius: 12,
-    padding: 24,
-    width: "100%",
-  },
-  resendLink: {
-    marginTop: 16,
-    color: "#333A3C",
-    fontSize: 14,
-    fontFamily: "Nunito",
-    textDecorationLine: "underline",
-  },
-  reviewItem: {
-    marginBottom: 16,
-  },
-  reviewLabel: {
-    fontSize: 14,
-    fontFamily: "Nunito",
-    color: "#333A3C",
-    marginBottom: 4,
-    textTransform: "lowercase",
-  },
-  reviewValue: {
-    fontSize: 16,
-    fontFamily: "Nunito",
-    color: "#333A3C",
-  },
-  error: {
-    color: "#EF4444",
-    backgroundColor: "#FEF2F2",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 16,
-    textAlign: "center",
-    fontWeight: "600",
-    fontSize: 16,
-    width: "100%",
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 24,
-  },
-  button: {
-    width: 56,
-    height: 56,
-    backgroundColor: "#FFEFB4",
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backButton: {
-    backgroundColor: "#F8F8F8",
-  },
-  buttonWithMargin: {
-    marginLeft: 12,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontFamily: "Nunito",
-    color: "#333A3C",
-    textTransform: "lowercase",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 24,
-  },
-  footerText: {
-    fontSize: 14,
-    fontFamily: "Nunito",
-    color: "#8A8E8F",
-  },
-  footerLink: {
-    fontSize: 14,
-    fontFamily: "Nunito",
-    color: "#333A3C",
-  },
-  inputContainer: {
-    width: "100%",
-    position: "relative",
-  },
-  inputAvailable: {
-    borderColor: "#4CAF50",
-    borderWidth: 1,
+    paddingTop: 20,
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    resizeMode: "contain",
+    width: 180,
+    height: 90,
+    resizeMode: 'contain',
+    marginBottom: 20,
   },
   card: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFFFFF",
     borderRadius: 32,
     padding: 32,
     shadowColor: "#000",
@@ -350,27 +211,78 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "900",
+    fontFamily: "PlanetComic",
     color: "#111",
     textAlign: "center",
-    marginBottom: 24,
-    letterSpacing: 1,
+    marginBottom: 8,
+    letterSpacing: 0,
   },
-  link: {
-    color: "#1877FF",
-    textAlign: "center",
+  subtitle: {
     fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+    fontWeight: "500",
+  },
+  input: {
+    width: "100%",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 16,
+    padding: 18,
+    fontSize: 16,
+    color: "#222",
+    marginBottom: 16,
+    fontWeight: "500",
+    borderWidth: 1,
+    borderColor: "#E9ECEF",
+  },
+  error: {
+    color: "#EF4444",
+    backgroundColor: "#FEF2F2",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    textAlign: "center",
     fontWeight: "600",
-    marginTop: 24,
+    fontSize: 15,
+    width: "100%",
+  },
+  continueButton: {
+    width: "100%",
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  buttonGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
   },
   appleButton: {
     width: "100%",
     height: 56,
-    marginTop: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  linkButton: {
+    padding: 8,
+  },
+  link: {
+    color: "#4B1AFF",
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

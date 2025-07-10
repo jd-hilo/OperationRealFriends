@@ -1,9 +1,19 @@
 import React from 'react';
 import { Modal, View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur'; 
 import { Typography } from './typography';
 
-const EmailVerificationModal = ({
+interface EmailVerificationModalProps {
+  visible: boolean;
+  email: string;
+  otp: string;
+  setOTP: (otp: string) => void;
+  otpTimer: number;
+  handleVerifyOTP: (email: string, otp: string) => void;
+  loading: boolean;
+  onClose: () => void;
+}
+
+const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   visible,
   email,
   otp,
@@ -15,8 +25,12 @@ const EmailVerificationModal = ({
 }) => {
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+      <View style={styles.blurContainer}>
         <View style={styles.modalContent}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Typography variant="body" style={styles.closeButtonText}>✕</Typography>
+          </TouchableOpacity>
+          
           <Typography variant="h1" style={styles.stepTitle}>
             verify your email
           </Typography>
@@ -60,16 +74,17 @@ const EmailVerificationModal = ({
             </Typography>
           </TouchableOpacity>
         </View>
-      </BlurView>
+      </View>
     </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({
   blurContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent dark background
   },
   modalContent: {
     width: '85%',
@@ -77,9 +92,28 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     alignItems: 'center',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: '600',
   },
   stepTitle: {
     marginBottom: 10,
+    marginTop: 20,
   },
   stepSubtitle: {
     marginBottom: 20,
