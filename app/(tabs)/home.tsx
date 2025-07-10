@@ -640,7 +640,7 @@ export default function Dashboard() {
     try {
       setShowResultsModal(false); // Close the modal first
       await signOut();
-      router.replace('/(auth)/login');
+      router.replace('/(auth)/signup');
     } catch (error) {
       console.error('Error signing out:', error);
     }

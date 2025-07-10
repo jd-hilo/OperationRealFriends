@@ -7,10 +7,16 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  showPassword: boolean;
+  otpTimer: number;
+  otp: number;
+  showOTP: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   appSignIn: () => Promise<void>;
+  handleVerifyOTP: (email: string, otp: string) => Promise<void>;
+  signInOTP: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +26,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [showOTP, setShowOTP] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otp, setOTP] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
   const ensureUserProfile = async (userId: string, email: string) => {
     try {
       // First try to fetch the profile
@@ -119,6 +138,169 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
   };
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+  const checkExistingUser = async (email: string) => {
+    try {
+      console.log("=== checkExistingUser START ===");
+      console.log("Checking email:", email);
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/check-existing-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Edge function response not ok:", response.status);
+        throw new Error("Failed to check existing user");
+      }
+
+      const result = await response.json();
+      console.log("Edge function result:", result);
+
+      return result;
+    } catch (error) {
+      console.error("Error checking existing user:", error);
+      throw error;
+    }
+  };
+  const signInOTP = async (email: string) => {
+    try {
+      alert("here ");
+      console.log("=== handleSendOTP START ===");
+      console.log("Loading state:", loading);
+      if (!email || !validateEmail(email)) {
+        console.log("Email validation failed");
+        return;
+      }else{
+
+      }
+      //const result = await checkExistingUser(email);
+      // if (result.exists) {
+      //   const { error: signInError } = await supabase.auth.signInWithOtp({
+      //     email: email,
+      //   });
+      //   console.log("otp sent ");
+      //   if (signInError) {
+      //     console.error("OTP send error:", signInError);
+      //     throw signInError;
+      //   }
+      // } else {
+        const { error: signInError } = await supabase.auth.signInWithOtp({
+          email: email,
+          
+        });
+        console.log("otp sent ");
+        if (signInError) {
+          console.error("OTP send error:", signInError);
+          throw signInError;
+        }
+     // }
+
+      console.log("Email validation passed, sending OTP...");
+
+      setShowOTP(true);
+      setOtpTimer(60); // 60 seconds cooldown
+    } catch (error) {
+      console.log("error :", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (email: string, otp: string) => {
+    try {
+      setLoading(true);
+
+      if (!otp) {
+        console.log("OTP validation failed - no OTP provided");
+        alert("Please enter the verification code");
+        return;
+      }
+
+      console.log("OTP validation passed, verifying OTP...");
+      // First verify the OTP
+      const {
+        data: { user },
+        error: verifyError,
+      } = await supabase.auth.verifyOtp({
+        email: email,
+        token: otp,
+        type: "email",
+      });
+
+      if (verifyError) {
+        console.error("OTP verification error:", verifyError);
+        throw verifyError;
+      }
+
+      console.log("OTP verified successfully");
+      console.log("User from OTP verification:", user);
+
+      // Check if user has a profile
+      if (user) {
+        console.log("User exists, checking for profile...");
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (profileError) {
+          console.log("Profile query error:", profileError);
+        }
+
+        console.log("Profile data:", profile);
+
+        if (profile && profile.username && profile.college) {
+          console.log("Profile exists and is complete, signing user in...");
+          // User exists and has a complete profile, sign them in
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession();
+          if (sessionError) {
+            console.error("Session error:", sessionError);
+            throw sessionError;
+          }
+
+          console.log("Session data:", session);
+
+          if (session) {
+            console.log("Session exists, navigating to tabs...");
+            // Wait a brief moment to ensure session state is updated
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            return;
+          }
+        } else {
+          console.log(
+            "No profile exists or profile is incomplete, continuing with sign up..."
+          );
+        }
+      } else {
+        console.log("No user returned from OTP verification");
+      }
+
+      // If no profile exists or profile is incomplete, continue with sign up
+      console.log("Moving to username step...");
+      setOtpTimer(0); // Reset timer
+      setShowOTP(false)
+      console.log("=== handleVerifyOTP END ===");
+    } catch (err) {
+      console.error("handleVerifyOTP catch error:", err);
+    } finally {
+      setLoading(false);
+      console.log("handleVerifyOTP loading set to false");
+    }
+  };
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -194,7 +376,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, loading, signIn, signUp, signOut, appSignIn }}
+      value={{
+        user,
+        session,
+        loading,
+        otp,
+        otpTimer,
+        showOTP,
+        signIn,
+        signUp,
+        signOut,
+        appSignIn,
+        signInOTP,
+        handleVerifyOTP,
+      }}
     >
       {children}
     </AuthContext.Provider>
