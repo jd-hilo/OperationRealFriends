@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingViewProps,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
@@ -76,108 +80,177 @@ export default function SignUp() {
     }
   };
 
+  // Determine the behavior based on platform
+  const keyboardBehavior: KeyboardAvoidingViewProps["behavior"] = Platform.OS === "ios" ? "padding" : "height";
+
   return (
-    <LinearGradient
-      colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
-      locations={[0, 0.4808, 0.9904]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={[styles.container, { paddingTop: insets.top }]}
+    <KeyboardAvoidingView 
+      behavior={keyboardBehavior}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <Image source={require('../../assets/logo.png')} style={styles.logo} />
-        
-        <View style={styles.card}>
-          <Text style={styles.title}>Enter your email</Text>
-          <Text style={styles.subtitle}>We'll send you a verification code</Text>
-          
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            placeholderTextColor="#999"
-          />
+      <LinearGradient
+        colors={["#E9F2FE", "#EDE7FF", "#FFFFFF"]}
+        locations={[0, 0.4808, 0.9904]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.container, { paddingTop: insets.top }]}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+            <View style={styles.card}>
+              <Text style={styles.title}>Enter your email</Text>
+              <Text style={styles.subtitle}>We will send a code to verify</Text>
+              
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.error}>{error}</Text>
+                </View>
+              ) : null}
+              
+              <View style={styles.formContainer}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    placeholderTextColor="#999"
+                  />
+                </View>
 
-          {showPassword && (
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="new-password"
-              placeholderTextColor="#999"
-            />
-          )}
+                {showOTP && (
+                  <View style={styles.otpContainer}>
+                    <Text style={styles.inputLabel}>Verification Code</Text>
+                    <Text style={styles.otpSubtitle}>Enter the 6-digit code we sent to {email}</Text>
+                    <TextInput
+                      style={[styles.input, styles.otpInput]}
+                      value={otp}
+                      onChangeText={setOTP}
+                      placeholder="000000"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      placeholderTextColor="#999"
+                    />
+                    
+                    <View style={styles.otpActions}>
+                      {otpTimer > 0 ? (
+                        <Text style={styles.resendText}>
+                          Resend code in {otpTimer}s
+                        </Text>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => signInOTP(email)}
+                          disabled={loading}
+                        >
+                          <Text style={styles.resendLink}>
+                            Resend code
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
-          {!showPassword && (
-            <TouchableOpacity
-              style={styles.continueButton}
-              onPress={checkOTPorPassword}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buttonGradient}
+                      <TouchableOpacity
+                        style={styles.continueButton}
+                        onPress={() => handleVerifyOTP(email, otp)}
+                        disabled={loading}
+                      >
+                        <LinearGradient
+                          colors={["#3AB9F9", "#4B1AFF"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.buttonGradient}
+                        >
+                          <Text style={styles.buttonText}>Verify Code</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {showPassword && (
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Password</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Create a password"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoComplete="new-password"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                )}
+
+                {!showPassword && !showOTP && (
+                  <TouchableOpacity
+                    style={styles.continueButton}
+                    onPress={checkOTPorPassword}
+                    disabled={loading}
+                  >
+                    <LinearGradient
+                      colors={["#3AB9F9", "#4B1AFF"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.buttonGradient}
+                    >
+                      <Text style={styles.buttonText}>Continue with Email</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {showPassword && (
+                  <TouchableOpacity
+                    style={styles.continueButton}
+                    onPress={handleSignUp}
+                    disabled={loading}
+                  >
+                    <LinearGradient
+                      colors={["#3AB9F9", "#4B1AFF"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.buttonGradient}
+                    >
+                      <Text style={styles.buttonText}>Create Account</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={28}
+                style={styles.appleButton}
+                onPress={async () => {appSignIn()}}
+              />
+
+              <TouchableOpacity 
+                onPress={() => router.push("/(auth)/login")}
+                style={styles.linkButton}
               >
-                <Text style={styles.buttonText}>Continue</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
-          {showPassword && (
-            <TouchableOpacity
-              style={styles.continueButton}
-              onPress={handleSignUp}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buttonGradient}
-              >
-                <Text style={styles.buttonText}>Sign Up</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={24}
-            style={styles.appleButton}
-            onPress={async () => {appSignIn()}}
-          />
-
-          <TouchableOpacity 
-            onPress={() => router.push("/(auth)/login")}
-            style={styles.linkButton}
-          >
-            <Text style={styles.link}>Already have an account? Log in</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
-      <EmailVerificationModal
-        visible={showOTP}
-        email={email}
-        otp={otp}
-        setOTP={setOTP}
-        otpTimer={otpTimer}
-        handleVerifyOTP={handleVerifyOTP}
-        loading={loading}
-        onClose={() => setShowOTP(false)}
-      />
-    </LinearGradient>
+                <Text style={styles.link}>Already have an account? <Text style={styles.linkBlue}>Log in</Text></Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -185,36 +258,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
   content: {
-    flex: 1,
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  logo: {
-    width: 180,
-    height: 90,
-    resizeMode: 'contain',
-    marginBottom: 20,
+    justifyContent: "center",
+    flex: 1,
   },
   card: {
     width: "100%",
     maxWidth: 400,
     backgroundColor: "#FFFFFF",
     borderRadius: 32,
-    padding: 32,
+    padding: 24,
     shadowColor: "#000",
     shadowOpacity: 0.08,
-    shadowRadius: 16,
+    shadowRadius: 24,
     elevation: 4,
     alignItems: "center",
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: "PlanetComic",
     color: "#111",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
     letterSpacing: 0,
   },
   subtitle: {
@@ -223,6 +294,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
     fontWeight: "500",
+    lineHeight: 22,
+  },
+  formContainer: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  inputContainer: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#444",
+    marginBottom: 8,
+    marginLeft: 4,
   },
   input: {
     width: "100%",
@@ -231,17 +318,19 @@ const styles = StyleSheet.create({
     padding: 18,
     fontSize: 16,
     color: "#222",
-    marginBottom: 16,
     fontWeight: "500",
     borderWidth: 1,
     borderColor: "#E9ECEF",
+  },
+  errorContainer: {
+    width: "100%",
+    marginBottom: 20,
   },
   error: {
     color: "#EF4444",
     backgroundColor: "#FEF2F2",
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
     textAlign: "center",
     fontWeight: "600",
     fontSize: 15,
@@ -252,7 +341,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     overflow: "hidden",
-    marginBottom: 16,
+    marginTop: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
@@ -267,22 +356,72 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
+  },
+  divider: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E9ECEF",
+  },
+  dividerText: {
+    color: "#666",
+    paddingHorizontal: 16,
+    fontSize: 14,
+    fontWeight: "500",
   },
   appleButton: {
     width: "100%",
     height: 56,
-    marginTop: 8,
     marginBottom: 24,
   },
   linkButton: {
-    padding: 8,
+    marginTop: 8,
   },
   link: {
+    color: "#666",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  linkBlue: {
     color: "#4B1AFF",
-    textAlign: "center",
-    fontSize: 16,
     fontWeight: "600",
+  },
+  otpContainer: {
+    width: "100%",
+    marginTop: 16,
+  },
+  otpSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  otpInput: {
+    textAlign: "center",
+    letterSpacing: 8,
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  otpActions: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  resendText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
+  },
+  resendLink: {
+    fontSize: 14,
+    color: "#4B1AFF",
+    fontWeight: "600",
+    marginBottom: 16,
   },
 });
