@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error: insertError } = await supabase.from("users").upsert([
         {
           id: userId,
-          email: email || '', // Provide default empty string if email is undefined
+          email: email || "", // Provide default empty string if email is undefined
           created_at: new Date().toISOString(),
           has_completed_quiz: false,
           submitted: false,
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const profile = await ensureUserProfile(
           session.user.id,
-          session.user.email ?? '' // Use nullish coalescing to provide default empty string
+          session.user.email ?? "" // Use nullish coalescing to provide default empty string
         );
         setUser(profile);
       } else {
@@ -181,17 +181,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Email validation failed");
         return;
       }
-      
+
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email: email,
       });
-      
+
       console.log("otp sent");
       if (signInError) {
         console.error("OTP send error:", signInError);
         throw signInError;
       }
-      
+
       setShowOTP(true);
       setOtpTimer(30);
     } catch (error) {
@@ -276,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If no profile exists or profile is incomplete, continue with sign up
       console.log("Moving to username step...");
       setOtpTimer(0); // Reset timer
-      setShowOTP(false)
+      setShowOTP(false);
       console.log("=== handleVerifyOTP END ===");
     } catch (err) {
       console.error("handleVerifyOTP catch error:", err);
@@ -326,7 +326,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!credential.identityToken) throw new Error("No identity token");
-      if (!credential.email) throw new Error("No email provided");
 
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
@@ -336,11 +335,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       if (!data.user) throw new Error("No user data");
 
-      await ensureUserProfile(
-        data.user.id,
-        credential.email
-      );
-    } catch (error: any) { // Type the error as any since we know it's from Apple Authentication
+      await ensureUserProfile(data.user.id, credential.email as string);
+    } catch (error: any) {
+      // Type the error as any since we know it's from Apple Authentication
       if (error.code === "ERR_REQUEST_CANCELED") {
         // Handle user canceling the sign-in flow
         console.log("Sign in canceled");

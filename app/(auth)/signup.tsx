@@ -42,7 +42,7 @@ export default function SignUp() {
     handleVerifyOTP,
     signInOTP,
     showOTP,
-    signIn
+    signIn,
     setShowOTP,
   } = useAuth();
   
@@ -212,7 +212,7 @@ export default function SignUp() {
                 {showPassword && (
                   <TouchableOpacity
                     style={styles.continueButton}
-                    onPress={handleSignUp}
+                    onPress={handleSignIn}
                     disabled={loading}
                   >
                     <LinearGradient
@@ -221,7 +221,7 @@ export default function SignUp() {
                       end={{ x: 1, y: 0 }}
                       style={styles.buttonGradient}
                     >
-                      <Text style={styles.buttonText}>Create Account</Text>
+                      <Text style={styles.buttonText}>Continue</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
