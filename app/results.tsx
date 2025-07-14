@@ -12,6 +12,51 @@ interface PersonalityResult {
   depth: string;
 }
 
+// Helper function to parse markdown text into styled text components
+const parseMarkdownText = (text: string) => {
+  const parts = [];
+  let lastIndex = 0;
+  
+  // Handle bold text
+  const boldRegex = /\*\*(.*?)\*\*/g;
+  let match;
+  
+  while ((match = boldRegex.exec(text)) !== null) {
+    // Add any text before the bold part
+    if (match.index > lastIndex) {
+      parts.push(
+        <Text key={`text-${lastIndex}`}>
+          {text.slice(lastIndex, match.index)}
+        </Text>
+      );
+    }
+    
+    // Add the bold text
+    parts.push(
+      <Text key={`bold-${match.index}`} style={{ fontWeight: '700' }}>
+        {match[1]}
+      </Text>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add any remaining text
+  if (lastIndex < text.length) {
+    parts.push(
+      <Text key={`text-${lastIndex}`}>
+        {text.slice(lastIndex)}
+      </Text>
+    );
+  }
+  
+  return parts.length > 0 ? (
+    <Text>{parts}</Text>
+  ) : (
+    <Text>{text}</Text>
+  );
+};
+
 export default function ResultsScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -53,6 +98,82 @@ export default function ResultsScreen() {
     fetchPersonalityResult();
   }, [user]);
 
+  const renderMarkdownSection = (section: string, index: number) => {
+    // Skip empty sections
+    if (!section.trim()) return null;
+
+    // Split section into lines
+    const lines = section.split('\n');
+    
+    // Check if this is a section with ### title
+    if (lines[0].startsWith('###')) {
+      const title = lines[0].replace(/^###\s*/, '').trim();
+      const content = lines.slice(1);
+      
+      return (
+        <View key={index} style={styles.section}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {content.map((line, i) => {
+            if (!line.trim()) return null;
+
+            // Handle bullet points (both • and - are supported)
+            if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+              const [bulletPoint, ...description] = line.trim()
+                .replace(/^[•-]\s*/, '')
+                .split(':');
+              return (
+                <View key={i} style={styles.bulletPoint}>
+                  <Text style={styles.bulletPointTitle}>
+                    {parseMarkdownText(bulletPoint.trim())}
+                  </Text>
+                  {description.length > 0 && (
+                    <Text style={styles.bulletPointContent}>
+                      {parseMarkdownText(description.join(':').trim())}
+                    </Text>
+                  )}
+                </View>
+              );
+            }
+            
+            // Handle numbered points
+            if (line.trim().match(/^\d+\./)) {
+              const [number, ...content] = line.trim().split('.');
+              return (
+                <View key={i} style={styles.numberedPoint}>
+                  <Text style={styles.numberCircle}>{number}</Text>
+                  <Text style={styles.numberedContent}>
+                    {parseMarkdownText(content.join('.').trim())}
+                  </Text>
+                </View>
+              );
+            }
+
+            // Regular line within a section
+            return (
+              <Text key={i} style={styles.sectionContent}>
+                {parseMarkdownText(line.trim())}
+              </Text>
+            );
+          })}
+        </View>
+      );
+    }
+    
+    // Regular paragraph (not a section)
+    return (
+      <View key={index} style={styles.paragraphSection}>
+        {lines.map((line, i) => {
+          if (!line.trim()) return null;
+          return (
+            <Text key={i} style={styles.paragraphText}>
+              {parseMarkdownText(line.trim())}
+            </Text>
+          );
+        })}
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -78,7 +199,7 @@ export default function ResultsScreen() {
             <Text style={styles.subtitle}>Here's what makes you unique! 🌟</Text>
             <View style={styles.typeBox}>
               <Text style={styles.personalityType}>{personalityResult?.type}</Text>
-              <Text style={styles.description}>{personalityResult?.description}</Text>
+              <Text style={styles.description}>{parseMarkdownText(personalityResult?.description || '')}</Text>
             </View>
           </View>
 
@@ -88,79 +209,9 @@ export default function ResultsScreen() {
               <Text style={styles.cardTitle}>In-Depth Analysis</Text>
               <Text style={styles.subtitle}>A deeper look into your personality 🔍</Text>
               <View style={styles.depthBox}>
-                {personalityResult.depth.split('\n\n').map((section, index) => {
-                  // Skip empty sections
-                  if (!section.trim()) return null;
-
-                  // Split section into lines
-                  const lines = section.split('\n');
-                  
-                  // Check if this is a section with ### title
-                  if (lines[0].startsWith('###')) {
-                    const title = lines[0].replace(/^###\s*/, '').trim();
-                    const content = lines.slice(1);
-                    
-                    return (
-                      <View key={index} style={styles.section}>
-                        <Text style={styles.sectionTitle}>{title}</Text>
-                        {content.map((line, i) => {
-                          if (!line.trim()) return null;
-
-                          // Handle bullet points
-                          if (line.trim().startsWith('•')) {
-                            const [bulletPoint, ...description] = line.trim().split(':');
-                            return (
-                              <View key={i} style={styles.bulletPoint}>
-                                <Text style={styles.bulletPointTitle}>
-                                  {bulletPoint.replace('•', '').trim()}
-                                </Text>
-                                {description.length > 0 && (
-                                  <Text style={styles.bulletPointContent}>
-                                    {description.join(':').trim()}
-                                  </Text>
-                                )}
-                              </View>
-                            );
-                          }
-                          
-                          // Handle numbered points
-                          if (line.trim().match(/^\d+\./)) {
-                            const [number, ...content] = line.trim().split('.');
-                            return (
-                              <View key={i} style={styles.numberedPoint}>
-                                <Text style={styles.numberCircle}>{number}</Text>
-                                <Text style={styles.numberedContent}>
-                                  {content.join('.').trim()}
-                                </Text>
-                              </View>
-                            );
-                          }
-
-                          // Regular line within a section
-                          return (
-                            <Text key={i} style={styles.sectionContent}>
-                              {line.trim()}
-                            </Text>
-                          );
-                        })}
-                      </View>
-                    );
-                  }
-                  
-                  // Regular paragraph (not a section)
-                  return (
-                    <View key={index} style={styles.paragraphSection}>
-                      {lines.map((line, i) => {
-                        if (!line.trim()) return null;
-                        return (
-                          <Text key={i} style={styles.paragraphText}>
-                            {line.trim()}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
+                {personalityResult.depth.split('\n\n').map((section, index) => 
+                  renderMarkdownSection(section, index)
+                )}
               </View>
             </View>
           )}

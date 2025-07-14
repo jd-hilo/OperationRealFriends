@@ -71,10 +71,17 @@ export default function RootLayout() {
     "Nunito-SemiBold": Nunito_600SemiBold,
     "Poppins-Regular": Poppins_400Regular,
     "Poppins-SemiBold": Poppins_600SemiBold,
+    "PlanetComic": require("../assets/fonts/PlanetComic.ttf"),
   });
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
+      // Log font loading status for debugging
+      if (fontError) {
+        console.error('Font loading error:', fontError);
+      } else {
+        console.log('Fonts loaded successfully:', Object.keys(fontsLoaded));
+      }
       SplashScreen.hideAsync().catch(() => {
         /* ignore error */
       });

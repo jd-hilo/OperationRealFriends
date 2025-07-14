@@ -11,6 +11,7 @@ interface AuthContextType {
   otpTimer: number;
   otp: number;
   showOTP: boolean;
+  setShowOTP: (show: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error: insertError } = await supabase.from("users").upsert([
         {
           id: userId,
-          email: email,
+          email: email || '', // Provide default empty string if email is undefined
           created_at: new Date().toISOString(),
           has_completed_quiz: false,
           submitted: false,
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const profile = await ensureUserProfile(
           session.user.id,
-          session.user.email || ""
+          session.user.email ?? '' // Use nullish coalescing to provide default empty string
         );
         setUser(profile);
       } else {
@@ -174,45 +175,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   const signInOTP = async (email: string) => {
     try {
-      alert("here ");
       console.log("=== handleSendOTP START ===");
       console.log("Loading state:", loading);
       if (!email || !validateEmail(email)) {
         console.log("Email validation failed");
         return;
-      }else{
-
       }
-      //const result = await checkExistingUser(email);
-      // if (result.exists) {
-      //   const { error: signInError } = await supabase.auth.signInWithOtp({
-      //     email: email,
-      //   });
-      //   console.log("otp sent ");
-      //   if (signInError) {
-      //     console.error("OTP send error:", signInError);
-      //     throw signInError;
-      //   }
-      // } else {
-        const { error: signInError } = await supabase.auth.signInWithOtp({
-          email: email,
-          
-        });
-        console.log("otp sent ");
-        if (signInError) {
-          console.error("OTP send error:", signInError);
-          throw signInError;
-        }
-     // }
-
-      console.log("Email validation passed, sending OTP...");
-
+      
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: email,
+      });
+      
+      console.log("otp sent");
+      if (signInError) {
+        console.error("OTP send error:", signInError);
+        throw signInError;
+      }
+      
       setShowOTP(true);
-      setOtpTimer(60); // 60 seconds cooldown
+      setOtpTimer(30);
     } catch (error) {
-      console.log("error :", error);
-    } finally {
-      setLoading(false);
+      console.error("Error in signInOTP:", error);
+      throw error;
     }
   };
 
@@ -340,27 +324,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-      // Sign in via Supabase Auth.
-      if (credential.identityToken) {
-        const {
-          error,
-          data: { user },
-        } = await supabase.auth.signInWithIdToken({
-          provider: "apple",
-          token: credential.identityToken,
-        });
 
-        if (!error) {
-          if (user) {
-            const profile = await ensureUserProfile(user.id, user?.email);
-            setUser(profile);
-          }
-        }
+      if (!credential.identityToken) throw new Error("No identity token");
+      if (!credential.email) throw new Error("No email provided");
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error("No user data");
+
+      await ensureUserProfile(
+        data.user.id,
+        credential.email
+      );
+    } catch (error: any) { // Type the error as any since we know it's from Apple Authentication
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        // Handle user canceling the sign-in flow
+        console.log("Sign in canceled");
       } else {
-        throw new Error("No identityToken.");
+        console.error("Error in appSignIn:", error);
+        throw error;
       }
-    } catch (e) {
-      console.log("error :", e);
     }
   };
 
@@ -380,15 +367,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         loading,
-        otp,
+        showPassword: false,
         otpTimer,
+        otp,
         showOTP,
+        setShowOTP,
         signIn,
         signUp,
         signOut,
         appSignIn,
-        signInOTP,
         handleVerifyOTP,
+        signInOTP,
       }}
     >
       {children}
@@ -398,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

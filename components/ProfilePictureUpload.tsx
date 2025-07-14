@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
 import { Camera, Upload, User } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { theme } from '../constants/theme';
 import { uploadProfilePicture, updateUserAvatar } from '../lib/storage';
 
@@ -21,9 +22,25 @@ export default function ProfilePictureUpload({
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl);
 
+  const manipulateImage = async (uri: string) => {
+    try {
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [
+          { resize: { width: 800, height: 800 } },
+          { crop: { originX: 0, originY: 0, width: 800, height: 800 } }
+        ],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return manipulatedImage.uri;
+    } catch (error) {
+      console.error('Error manipulating image:', error);
+      throw error;
+    }
+  };
+
   const pickImage = async () => {
     try {
-      // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -31,17 +48,16 @@ export default function ProfilePictureUpload({
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
-        base64: false,
+        quality: 1, // We'll handle compression in manipulateImage
       });
 
       if (!result.canceled && result.assets[0]) {
-        await uploadImage(result.assets[0].uri);
+        const manipulatedUri = await manipulateImage(result.assets[0].uri);
+        await uploadImage(manipulatedUri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -51,7 +67,6 @@ export default function ProfilePictureUpload({
 
   const takePhoto = async () => {
     try {
-      // Request permission
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -59,16 +74,15 @@ export default function ProfilePictureUpload({
         return;
       }
 
-      // Launch camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
-        base64: false,
+        quality: 1, // We'll handle compression in manipulateImage
       });
 
       if (!result.canceled && result.assets[0]) {
-        await uploadImage(result.assets[0].uri);
+        const manipulatedUri = await manipulateImage(result.assets[0].uri);
+        await uploadImage(manipulatedUri);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
