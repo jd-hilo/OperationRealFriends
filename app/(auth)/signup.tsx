@@ -30,6 +30,7 @@ export default function SignUp() {
     handleVerifyOTP,
     signInOTP,
     showOTP,
+    signIn
   } = useAuth();
   const PASSWORD_EMAILS = ["apple@test.com", "jd@sull.com", "jd@sull1.com"];
   const checkOTPorPassword = () => {
@@ -39,7 +40,7 @@ export default function SignUp() {
     }
     signInOTP(email);
   };
-  const handleSignUp = async () => {
+  const handleSignIn = async () => {
     try {
       setError("");
       if (!isValidEmail(email)) {
@@ -50,7 +51,7 @@ export default function SignUp() {
         setError("Password must be at least 6 characters long");
         return;
       }
-      await signUp(email, password);
+      await signIn(email, password);
     } catch (err: any) {
       setError(err.message);
     }
@@ -128,7 +129,7 @@ export default function SignUp() {
         {!showPassword && (
           <Button title="Continue" onPress={checkOTPorPassword} />
         )}
-        {showPassword && <Button title="Sign Up" onPress={handleSignUp} />}
+        {showPassword && <Button title="Sign In" onPress={handleSignIn} />}
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
           buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
