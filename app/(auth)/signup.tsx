@@ -103,7 +103,7 @@ export default function SignUp() {
           bounces={false}
         >
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-            <View style={styles.card}>
+      <View style={styles.card}>
               <Text style={styles.title}>Enter your email</Text>
               <Text style={styles.subtitle}>We will send a code to verify</Text>
               
@@ -116,14 +116,14 @@ export default function SignUp() {
               <View style={styles.formContainer}>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email</Text>
-                  <TextInput
-                    style={styles.input}
+        <TextInput
+          style={styles.input}
                     placeholder="Enter your email address"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
                     placeholderTextColor="#999"
                   />
                 </View>
@@ -139,8 +139,8 @@ export default function SignUp() {
                       placeholder="000000"
                       keyboardType="number-pad"
                       maxLength={6}
-                      placeholderTextColor="#999"
-                    />
+          placeholderTextColor="#999"
+        />
                     
                     <View style={styles.otpActions}>
                       {otpTimer > 0 ? (
@@ -176,20 +176,20 @@ export default function SignUp() {
                   </View>
                 )}
 
-                {showPassword && (
+        {showPassword && (
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Password</Text>
-                    <TextInput
-                      style={styles.input}
+          <TextInput
+            style={styles.input}
                       placeholder="Create a password"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      autoComplete="new-password"
-                      placeholderTextColor="#999"
-                    />
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="new-password"
+            placeholderTextColor="#999"
+          />
                   </View>
-                )}
+        )}
 
                 {!showPassword && !showOTP && (
                   <TouchableOpacity
@@ -206,7 +206,7 @@ export default function SignUp() {
                       <Text style={styles.buttonText}>Continue with Email</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                )}
+        )}
 
                 {showPassword && (
                   <TouchableOpacity
@@ -232,21 +232,21 @@ export default function SignUp() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <AppleAuthentication.AppleAuthenticationButton
+        <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
                 cornerRadius={28}
-                style={styles.appleButton}
-                onPress={async () => {appSignIn()}}
-              />
+          style={styles.appleButton}
+          onPress={async () => {appSignIn()}}
+        />
 
               <TouchableOpacity 
                 onPress={() => router.push("/(auth)/login")}
                 style={styles.linkButton}
               >
                 <Text style={styles.link}>Already have an account? <Text style={styles.linkBlue}>Log in</Text></Text>
-              </TouchableOpacity>
-            </View>
+        </TouchableOpacity>
+      </View>
           </Animated.View>
         </ScrollView>
       </LinearGradient>

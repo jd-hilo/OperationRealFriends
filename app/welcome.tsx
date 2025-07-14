@@ -123,7 +123,7 @@ const slides = [
     id: 1,
     title: 'QUICK\nViBE CHECK',
     titleBlue: 'CHECK',
-    subtitle: 'Answer the quiz to find your match.',
+    subtitle: 'Compelte our personality assessment.',
     demoContent: () => (
       <View style={styles.demoContainer}>
         <View style={styles.quizContent}>
@@ -147,7 +147,7 @@ const slides = [
     id: 2,
     title: 'MEET\nYOUR GROUP',
     titleBlue: 'GROUP',
-    subtitle: 'Show up together,\nor the pact dissolves.',
+    subtitle: 'Get matched with 4 other people.',
     demoContent: () => (
       <View style={styles.demoContainer}>
         <View style={[styles.groupCardContainer, { height: 269 }]}>
