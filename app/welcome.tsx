@@ -123,7 +123,7 @@ const slides = [
     id: 1,
     title: 'QUICK\nViBE CHECK',
     titleBlue: 'CHECK',
-    subtitle: 'Compelte our personality assessment.',
+    subtitle: 'Complete our personality assessment.',
     demoContent: () => (
       <View style={styles.demoContainer}>
         <View style={styles.quizContent}>
