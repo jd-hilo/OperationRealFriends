@@ -1264,17 +1264,7 @@ export default function Dashboard() {
         </View>
         <View style={styles.section}>
           <PromptCard
-            promptType={(() => {
-              if (!currentPrompt?.prompt_type) return 'text';
-              switch (currentPrompt.prompt_type) {
-                case 'photo':
-                  return 'photo';
-                case 'audio':
-                  return 'audio';
-                case 'text':
-                  return 'text';
-              }
-            })()}
+            promptType={currentPrompt?.prompt_type === 'photo' ? 'photo' : 'text'}
             date={(() => {
               const d = currentPrompt?.created_at ? new Date(currentPrompt.created_at) : new Date();
               return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
