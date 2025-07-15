@@ -19,12 +19,12 @@ The way you process information indicates a strong drive for personal growth thr
   { type: 'The Visionary', icon: '🌟', description: 'Imaginative and future-focused, loves brainstorming big ideas and possibilities.' },
   { type: 'The Realist', icon: '⚖️', description: 'Practical and grounded, values clear plans and tangible results.' },
   { type: 'The Innovator', icon: '💡', description: 'Creative and bold, often comes up with unconventional solutions.' },
-  { type: 'The Reflector', icon: '🪞', description: 'Quiet and introspective, gains insight through observation and self-reflection.' },
-  { type: 'The Strategist', icon: '🗺️', description: 'Logical and forward-thinking, maps out pathways to success with precision.' },
-  { type: 'The Motivator', icon: '🚀', description: 'Enthusiastic and inspiring, sparks energy and optimism in others.' },
-  { type: 'The Analyst', icon: '📊', description: 'Methodical and data-driven, relies on facts and evidence to guide decisions.' },
-  { type: 'The Enthusiast', icon: '🎉', description: 'Spontaneous and fun-loving, brings excitement and positivity to every situation.' },
-  { type: 'The Harmonizer', icon: '🕊️', description: 'Peacemaking and cooperative, excels at resolving conflicts and fostering teamwork.' },
+  { type: 'The Reflector', icon: '🪞', description: 'Thoughtful and observant, learns from experiences and helps others do the same.' },
+  { type: 'The Strategist', icon: '♟️', description: 'Forward-thinking and methodical, excels at planning and decision-making.' },
+  { type: 'The Motivator', icon: '🌠', description: 'Inspiring and energetic, brings out the best in others.' },
+  { type: 'The Analyst', icon: '📊', description: 'Detail-focused and logical, excels at solving complex problems.' },
+  { type: 'The Enthusiast', icon: '✨', description: 'Passionate and optimistic, brings energy and excitement to projects.' },
+  { type: 'The Harmonizer', icon: '🎵', description: 'Balanced and diplomatic, creates harmony in groups and relationships.' }
 ];
 
 export async function determinePersonalityType(userId: string): Promise<void> {
