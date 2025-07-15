@@ -240,13 +240,6 @@ export default function SignUp() {
           style={styles.appleButton}
           onPress={async () => {appSignIn()}}
         />
-
-              <TouchableOpacity 
-                onPress={() => router.push("/(auth)/login")}
-                style={styles.linkButton}
-              >
-                <Text style={styles.link}>Already have an account? <Text style={styles.linkBlue}>Log in</Text></Text>
-        </TouchableOpacity>
       </View>
           </Animated.View>
         </ScrollView>
@@ -258,6 +251,7 @@ export default function SignUp() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#fff",
   },
   scrollContent: {
     flexGrow: 1,
@@ -378,21 +372,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   appleButton: {
-    width: "100%",
     height: 56,
-    marginBottom: 24,
-  },
-  linkButton: {
-    marginTop: 8,
-  },
-  link: {
-    color: "#666",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  linkBlue: {
-    color: "#4B1AFF",
-    fontWeight: "600",
+    width: "100%",
+    marginBottom: 16,
   },
   otpContainer: {
     width: "100%",
