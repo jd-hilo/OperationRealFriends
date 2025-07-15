@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingViewProps,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
@@ -240,6 +241,15 @@ export default function SignUp() {
           style={styles.appleButton}
           onPress={async () => {appSignIn()}}
         />
+        <Text style={styles.termsText}>
+          By continuing, you agree to our{' '}
+          <Text 
+            style={styles.termsLink} 
+            onPress={() => Linking.openURL('https://pastoral-supply-662.notion.site/Pact-Terms-of-Service-2082cec59ddf8079aa96d12797702b92?source=copy_link')}
+          >
+            Terms of Service
+          </Text>
+        </Text>
       </View>
           </Animated.View>
         </ScrollView>
@@ -374,7 +384,7 @@ const styles = StyleSheet.create({
   appleButton: {
     height: 56,
     width: "100%",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   otpContainer: {
     width: "100%",
@@ -406,5 +416,16 @@ const styles = StyleSheet.create({
     color: "#4B1AFF",
     fontWeight: "600",
     marginBottom: 16,
+  },
+  termsText: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 18,
+    paddingHorizontal: 20,
+  },
+  termsLink: {
+    color: "#4B1AFF",
+    fontWeight: "600",
   },
 });
