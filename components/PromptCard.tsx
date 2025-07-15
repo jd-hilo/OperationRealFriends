@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface PromptCardProps {
-  promptType: 'text' | 'photo';
+  promptType: 'text' | 'photo' | 'audio';
   date: string; // e.g. '09 May'
   prompt: string;
   timeLeft: string; // e.g. '02:34'
@@ -13,6 +13,18 @@ interface PromptCardProps {
 }
 
 const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeLeft, onRespond, hasSubmitted }) => {
+  const getPromptIcon = () => {
+    switch (promptType) {
+      case 'photo':
+        return <MaterialCommunityIcons name="camera" size={24} color="#6366F1" />;
+      case 'audio':
+        return <MaterialCommunityIcons name="microphone" size={24} color="#6366F1" />;
+      case 'text':
+      default:
+        return <MaterialCommunityIcons name="text" size={24} color="#6366F1" />;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -26,6 +38,9 @@ const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeL
               end={{ x: 1, y: 0 }}
               style={styles.dateUnderline}
             />
+          </View>
+          <View style={styles.promptTypeIcon}>
+            {getPromptIcon()}
           </View>
         </View>
         <View style={styles.timerCircle}>
@@ -95,6 +110,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     marginRight: 8,
     position: 'relative',
+  },
+  promptTypeIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E0E7FF',
+    marginRight: 8,
+    marginTop: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   timerCircle: {
     alignItems: 'center',
