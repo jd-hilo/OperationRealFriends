@@ -130,7 +130,7 @@ function TabLayoutInner() {
           options={{
             title: 'Home',
             headerShown: false,
-            tabBarIcon: ({ focused, size }) => {
+            tabBarIcon: ({ focused, size }: { focused: boolean; size: number }) => {
               useEffect(() => {
                 if (focused && !homeWasFocused.current) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -157,7 +157,7 @@ function TabLayoutInner() {
           name="prompt"
           options={{
             title: 'Prompt',
-            tabBarIcon: ({ focused, size }) => {
+            tabBarIcon: ({ focused, size }: { focused: boolean; size: number }) => {
               useEffect(() => {
                 if (focused && !promptWasFocused.current) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -184,7 +184,7 @@ function TabLayoutInner() {
           name="connect"
           options={{
             title: 'Connect',
-            tabBarIcon: ({ focused, size }) => {
+            tabBarIcon: ({ focused, size }: { focused: boolean; size: number }) => {
               useEffect(() => {
                 if (focused && !connectWasFocused.current) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

@@ -45,6 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import GroupDetailsCard from '../../components/GroupDetailsCard';
 import MatchReasonCard from '../../components/MatchReasonCard';
+import { useFonts } from 'expo-font';
 
 const { width } = Dimensions.get('window');
 
@@ -209,6 +210,12 @@ The way you process information indicates a strong drive for personal growth thr
 ];
 
 export default function Dashboard() {
+  const [fontsLoaded] = useFonts({
+    'PlanetComic': require('../../assets/fonts/PlanetComic.ttf'),
+  });
+  if (!fontsLoaded) {
+    return null;
+  }
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const [group, setGroup] = useState<Group | null>(null);
@@ -240,6 +247,45 @@ export default function Dashboard() {
     personalitydescription: string | null;
     personalitydepth: string | null;
   } | null>(null);
+
+  // Animated group member card setup
+  const memberData = [
+    { emoji: '😎', label: 'loading' },
+    { emoji: '🤩', label: 'loading' },
+    { emoji: '👻', label: 'loading' },
+    { emoji: '😊', label: 'You' },
+  ];
+  const memberAnims = memberData.map(() => ({
+    translateY: useRef(new Animated.Value(40)).current,
+    hoverAnim: useRef(new Animated.Value(0)).current,
+  }));
+  useEffect(() => {
+    memberAnims.forEach(({ translateY, hoverAnim }, idx) => {
+      Animated.sequence([
+        Animated.delay(idx * 120),
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 12,
+        }),
+      ]).start(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(hoverAnim, {
+              toValue: 1,
+              duration: 1200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(hoverAnim, {
+              toValue: 0,
+              duration: 1200,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      });
+    });
+  }, []);
 
   const checkGroupStatus = async (groupData: Group) => {
     if (!groupData.current_prompt_id || !groupData.members) return;
@@ -970,48 +1016,51 @@ export default function Dashboard() {
         end={{ x: 0, y: 1 }}
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
       >
-        <Animated.View 
-          style={[
-            styles.queueContent,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Animated.View 
-            style={[
-              styles.queueIconWrapper,
-              {
-                transform: [
-                  { rotate: spin },
-                  { scale: scale }
-                ]
-              }
-            ]}
-          > 
-            <Image
-              source={require('../../assets/globe.png')}
-              style={styles.queueIcon}
-              resizeMode="contain"
-            />
-            <Image 
-              source={require('../../assets/logo.png')} 
-              style={styles.queueLogo}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          <Text style={styles.queueTitle}>Join the Waitlist</Text>
-          <Text style={styles.queueSubtitle}>
-            We're currently pre-launch, join our waitlist to be among the first to be matched in a group.
-          </Text>
+        <Text style={{ fontFamily: 'PlanetComic', fontSize: 36, color: '#fff', marginBottom: 32, textAlign: 'center' }}>
+          Your friends await
+        </Text>
+        {/* Remove GroupDetailsCard and add group member cards */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24, gap: 24 }}>
+        {memberData.map((member, idx) => {
+          const { translateY, hoverAnim } = memberAnims[idx];
+          const combinedTranslateY = Animated.add(
+            translateY,
+            hoverAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -12],
+            })
+          );
+          return (
+            <Animated.View key={idx} style={{ alignItems: 'center', transform: [{ translateY: combinedTranslateY }] }}>
+              <View style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: '#fff',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 8,
+                borderWidth: 2,
+                borderColor: '#4B1AFF',
+                shadowColor: '#000',
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                elevation: 2,
+              }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: '#4B1AFF' }}>
+                  {member.emoji}
+                </Text>
+              </View>
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{member.label}</Text>
+            </Animated.View>
+          );
+        })}
+      </View>
+        <Text style={styles.queueSubtitle}>
+          We're currently pre-launch, join our waitlist to be among the first to be matched in a group.
+        </Text>
+        {/* Join Waitlist button and message at the bottom */}
+        <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center', width: '100%' }}>
           <TouchableOpacity 
             style={styles.queueButton}
             onPress={handleJoinWaitlist}
@@ -1027,143 +1076,136 @@ export default function Dashboard() {
               </LinearGradient>
             </View>
           </TouchableOpacity>
-          <Text style={styles.queueHint}>
+          <Text style={[styles.queueHint, { marginTop: 24 }]}> 
             Make sure to sign up with same email you used here.
           </Text>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => setShowResultsModal(true)}
-          >
-            <MaterialCommunityIcons name="account-circle" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Modal
-            visible={showResultsModal}
-            transparent
-            animationType="fade"
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <ScrollView 
-                  contentContainerStyle={styles.modalScrollContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {/* Personality Type Card */}
-                  <View style={styles.modalCard}>
-                    <Text style={styles.modalCardTitle}>Your Personality Type</Text>
-                    <Text style={styles.modalSubtitle}>Here's what makes you unique! 🌟</Text>
-                    <View style={styles.modalTypeBox}>
-                      {userData?.personalitytype && (
-                        <>
-                          <Text style={styles.modalPersonalityType}>
-                            {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
-                          </Text>
-                          <Text style={styles.modalDescription}>{userData.personalitydescription}</Text>
-                        </>
-                      )}
-                    </View>
+        </View>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => setShowResultsModal(true)}
+        >
+          <MaterialCommunityIcons name="account-circle" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Modal
+          visible={showResultsModal}
+          transparent
+          animationType="fade"
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <ScrollView 
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Personality Type Card */}
+                <View style={styles.modalCard}>
+                  <Text style={styles.modalCardTitle}>Your Personality Type</Text>
+                  <Text style={styles.modalSubtitle}>Here's what makes you unique! 🌟</Text>
+                  <View style={styles.modalTypeBox}>
+                    {userData?.personalitytype && (
+                      <>
+                        <Text style={styles.modalPersonalityType}>
+                          {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
+                        </Text>
+                        <Text style={styles.modalDescription}>{userData.personalitydescription}</Text>
+                      </>
+                    )}
                   </View>
+                </View>
 
-                  {/* In-Depth Analysis Card */}
-                  {userData?.personalitydepth && (
-                    <View style={styles.modalCard}>
-                      <Text style={styles.modalCardTitle}>In-Depth Analysis</Text>
-                      <Text style={styles.modalSubtitle}>A deeper look into your personality 🔍</Text>
-                      <View style={styles.modalDepthBox}>
-                        {userData.personalitydepth.split('\n\n').map((section, index) => {
-                          if (!section.trim()) return null;
+                {/* In-Depth Analysis Card */}
+                {userData?.personalitydepth && (
+                  <View style={styles.modalCard}>
+                    <Text style={styles.modalCardTitle}>In-Depth Analysis</Text>
+                    <Text style={styles.modalSubtitle}>A deeper look into your personality 🔍</Text>
+                    <View style={styles.modalDepthBox}>
+                      {userData.personalitydepth.split('\n\n').map((section, index) => {
+                        if (!section.trim()) return null;
 
-                          const lines = section.split('\n');
+                        const lines = section.split('\n');
+                        
+                        // Check if this is a section with ### title
+                        if (lines[0].startsWith('###')) {
+                          const title = lines[0].replace(/^###\s*/, '').trim();
+                          const content = lines.slice(1);
                           
-                          // Check if this is a section with ### title
-                          if (lines[0].startsWith('###')) {
-                            const title = lines[0].replace(/^###\s*/, '').trim();
-                            const content = lines.slice(1);
-                            
-                            return (
-                              <View key={index} style={styles.modalSection}>
-                                <Text style={styles.modalSectionTitle}>{title}</Text>
-                                {content.map((line, i) => {
-                                  if (!line.trim()) return null;
-
-                                  // Handle bullet points
-                                  if (line.trim().startsWith('•')) {
-                                    const [bulletPoint, ...description] = line.trim().split(':');
-                                    return (
-                                      <View key={i} style={styles.modalBulletPoint}>
-                                        <Text style={styles.modalBulletPointTitle}>
-                                          {bulletPoint.replace('•', '').trim()}
-                                        </Text>
-                                        {description.length > 0 && (
-                                          <Text style={styles.modalBulletPointContent}>
-                                            {description.join(':').trim()}
-                                          </Text>
-                                        )}
-                                      </View>
-                                    );
-                                  }
-                                  
-                                  // Handle numbered points
-                                  if (line.trim().match(/^\d+\./)) {
-                                    const [number, ...content] = line.trim().split('.');
-                                    return (
-                                      <View key={i} style={styles.modalNumberedPoint}>
-                                        <Text style={styles.modalNumberCircle}>{number}</Text>
-                                        <Text style={styles.modalNumberedContent}>
-                                          {content.join('.').trim()}
-                                        </Text>
-                                      </View>
-                                    );
-                                  }
-
-                                  // Regular line within a section
-                                  return (
-                                    <Text key={i} style={styles.modalSectionContent}>
-                                      {line.trim()}
-                                    </Text>
-                                  );
-                                })}
-                              </View>
-                            );
-                          }
-                          
-                          // Regular paragraph
                           return (
-                            <View key={index} style={styles.modalParagraphSection}>
-                              {lines.map((line, i) => {
+                            <View key={index} style={styles.modalSection}>
+                              <Text style={styles.modalSectionTitle}>{title}</Text>
+                              {content.map((line, i) => {
                                 if (!line.trim()) return null;
+
+                                // Handle bullet points
+                                if (line.trim().startsWith('•')) {
+                                  const [bulletPoint, ...description] = line.trim().split(':');
+                                  return (
+                                    <View key={i} style={styles.modalBulletPoint}>
+                                      <Text style={styles.modalBulletPointTitle}>
+                                        {bulletPoint.replace('•', '').trim()}
+                                      </Text>
+                                      {description.length > 0 && (
+                                        <Text style={styles.modalBulletPointContent}>
+                                          {description.join(':').trim()}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  );
+                                }
+                                
+                                // Handle numbered points
+                                if (line.trim().match(/^\d+\./)) {
+                                  const [number, ...content] = line.trim().split('.');
+                                  return (
+                                    <View key={i} style={styles.modalNumberedPoint}>
+                                      <Text style={styles.modalNumberCircle}>{number}</Text>
+                                      <Text style={styles.modalNumberedContent}>
+                                        {content.join('.').trim()}
+                                      </Text>
+                                    </View>
+                                  );
+                                }
+
+                                // Regular line within a section
                                 return (
-                                  <Text key={i} style={styles.modalParagraphText}>
+                                  <Text key={i} style={styles.modalSectionContent}>
                                     {line.trim()}
                                   </Text>
                                 );
                               })}
                             </View>
                           );
-                        })}
-                      </View>
+                        }
+                        
+                        // Regular paragraph
+                        return (
+                          <View key={index} style={styles.modalParagraphSection}>
+                            {lines.map((line, i) => {
+                              if (!line.trim()) return null;
+                              return (
+                                <Text key={i} style={styles.modalParagraphText}>
+                                  {line.trim()}
+                                </Text>
+                              );
+                            })}
+                          </View>
+                        );
+                      })}
                     </View>
-                  )}
-                </ScrollView>
+                  </View>
+                )}
+              </ScrollView>
 
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={() => setShowResultsModal(false)}
-                  >
-                    <Text style={styles.closeButtonText}>Close</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.closeButton, { backgroundColor: '#FF4B4B' }]}
-                    onPress={handleSignOut}
-                  >
-                    <Text style={styles.closeButtonText}>Sign Out</Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowResultsModal(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </Modal>
-        </Animated.View>
+          </View>
+        </Modal>
       </LinearGradient>
     );
   }
