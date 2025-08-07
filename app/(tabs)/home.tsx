@@ -1057,7 +1057,7 @@ export default function Dashboard() {
         })}
       </View>
         <Text style={styles.queueSubtitle}>
-          We're currently pre-launch, enable notifications to be among the first to be matched in a group.
+          Enable notifications to be alerted when you are matched with a group.
         </Text>
         {/* Notify Me button and message at the bottom */}
         <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center', width: '100%' }}>
@@ -1077,7 +1077,7 @@ export default function Dashboard() {
             </View>
           </TouchableOpacity>
           <Text style={[styles.queueHint, { marginTop: 24 }]}> 
-            We'll notify you when your group is ready!
+            It usually takes 24-48 hours to match you with compatible group members based on your personality and preferences.
           </Text>
         </View>
         <TouchableOpacity
@@ -1693,6 +1693,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     lineHeight: 24,
     opacity: 0.9,
+    maxWidth: 350,
+    alignSelf: 'center',
   },
   queueButton: {
     width: 280,
@@ -1728,11 +1730,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   queueHint: {
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.sm,
     color: '#FFFFFF',
     textAlign: 'center',
     marginTop: theme.spacing.xl,
-    lineHeight: 22,
+    lineHeight: 20,
     opacity: 0.8,
   },
   timerTextExpired: {

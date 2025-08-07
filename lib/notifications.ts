@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -41,7 +43,6 @@ export async function registerForPushNotificationsAsync() {
       allowAlert: true,
       allowBadge: true,
       allowSound: true,
-      allowAnnouncements: true,
     },
   });
   console.log('Permission request result:', status);
@@ -129,8 +130,8 @@ export async function sendTestNotification(token: string) {
   const message = {
     to: token,
     sound: 'default',
-    title: 'Test Notification',
-    body: 'This is a test notification!',
+    title: 'Notifications Enabled! 🎉',
+    body: 'You\'ll be notified when you have been matched with a group!',
     data: { someData: 'goes here' },
   };
 
