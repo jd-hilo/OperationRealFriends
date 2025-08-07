@@ -234,13 +234,15 @@ export default function SignUp() {
                 <View style={styles.dividerLine} />
               </View>
 
-        <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={28}
-          style={styles.appleButton}
-          onPress={async () => {appSignIn()}}
-        />
+        <View style={styles.appleButtonContainer}>
+          <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                  cornerRadius={28}
+            style={styles.appleButton}
+            onPress={async () => {appSignIn()}}
+          />
+        </View>
         <Text style={styles.termsText}>
           By continuing, you agree to our{' '}
           <Text 
@@ -381,10 +383,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
+  appleButtonContainer: {
+    width: "100%",
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "#000000",
+    borderRadius: 28,
+    borderStyle: "solid",
+    padding: 2,
+  },
   appleButton: {
     height: 56,
     width: "100%",
-    marginBottom: 12,
   },
   otpContainer: {
     width: "100%",

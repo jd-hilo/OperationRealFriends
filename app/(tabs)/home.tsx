@@ -1057,13 +1057,13 @@ export default function Dashboard() {
         })}
       </View>
         <Text style={styles.queueSubtitle}>
-          We're currently pre-launch, join our waitlist to be among the first to be matched in a group.
+          We're currently pre-launch, enable notifications to be among the first to be matched in a group.
         </Text>
-        {/* Join Waitlist button and message at the bottom */}
+        {/* Notify Me button and message at the bottom */}
         <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center', width: '100%' }}>
           <TouchableOpacity 
             style={styles.queueButton}
-            onPress={handleJoinWaitlist}
+            onPress={handleNotifyMe}
           >
             <View style={styles.queueButtonInner}>
               <LinearGradient
@@ -1072,12 +1072,12 @@ export default function Dashboard() {
                 end={{ x: 1, y: 0 }}
                 style={styles.queueButtonGradient}
               >
-                <Text style={styles.queueButtonText}>Join Waitlist</Text>
+                <Text style={styles.queueButtonText}>Notify Me</Text>
               </LinearGradient>
             </View>
           </TouchableOpacity>
           <Text style={[styles.queueHint, { marginTop: 24 }]}> 
-            Make sure to sign up with same email you used here.
+            We'll notify you when your group is ready!
           </Text>
         </View>
         <TouchableOpacity

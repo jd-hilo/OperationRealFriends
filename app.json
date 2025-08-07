@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
-      "buildNumber": "34",
+      "buildNumber": "35",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -54,6 +54,13 @@
         {
           "fontFamily": "PlanetComic",
           "fontPath": "./assets/fonts/PlanetComic.ttf"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
         }
       ]
     ],
