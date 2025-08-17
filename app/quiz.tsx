@@ -294,13 +294,20 @@ export default function QuizScreen() {
   };
 
   const handleTextSubmit = async () => {
-    if (!textInput.trim()) return;
+    // Allow empty input for Instagram field (question 17) since it's optional
+    if (currentQuestion === 17) {
+      // Instagram field is optional, so we can proceed even with empty input
+      await handleAnswer(textInput || '');
+    } else if (!textInput.trim()) {
+      // For all other fields, require content
+      return;
+    } else {
+      await handleAnswer(textInput);
+    }
     
     try {
       // Trigger haptic feedback
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
-      await handleAnswer(textInput);
     } catch (error) {
       console.error('Error in handleTextSubmit:', error);
     }
@@ -583,7 +590,8 @@ export default function QuizScreen() {
                   <TextInput
                     style={[
                       styles.textInput,
-                      currentQuestion === 16 && styles.bioInput
+                      currentQuestion === 16 && styles.bioInput,
+                      currentQuestion === 10 && { letterSpacing: 0 }
                     ]}
                     value={textInput}
                     onChangeText={handleTextChange}
@@ -613,9 +621,9 @@ export default function QuizScreen() {
                   </Text>
                 )}
                 <TouchableOpacity
-                  style={[styles.submitButton, !textInput.trim() && styles.submitButtonDisabled]}
+                  style={[styles.submitButton, !textInput.trim() && currentQuestion !== 17 && styles.submitButtonDisabled]}
                   onPress={handleTextSubmit}
-                  disabled={!textInput.trim()}
+                  disabled={!textInput.trim() && currentQuestion !== 17}
                 >
                   <LinearGradient
                     colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
@@ -623,7 +631,7 @@ export default function QuizScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.buttonGradient}
                   >
-                    <Text style={[styles.submitButtonText, !textInput.trim() && styles.submitButtonTextDisabled]}>
+                    <Text style={[styles.submitButtonText, !textInput.trim() && currentQuestion !== 17 && styles.submitButtonTextDisabled]}>
                       Submit
                     </Text>
                   </LinearGradient>

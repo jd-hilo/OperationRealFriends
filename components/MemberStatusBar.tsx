@@ -90,9 +90,9 @@ const MemberStatusBar: React.FC<MemberStatusBarProps> = ({
                 ]
               }>
                 {member.submitted ? (
-                  <CheckCircle2 size={14} color="#287D00" style={{ marginRight: 4 }} />
+                  <CheckCircle2 size={12} color="#287D00" style={{ marginRight: 2 }} />
                 ) : (
-                  <Clock size={14} color="rgba(0,0,0,0.7)" style={{ marginRight: 4 }} />
+                  <Clock size={12} color="rgba(0,0,0,0.7)" style={{ marginRight: 2 }} />
                 )}
                 <Text style={
                   [styles.statusText,
@@ -112,7 +112,7 @@ const MemberStatusBar: React.FC<MemberStatusBarProps> = ({
             <Text style={styles.statsText}>{checkedInCount}/{totalCount} checked in</Text>
           </View>
           <View style={styles.statsBadge}>
-            <Text style={styles.statsText}>Submit By: {nextCheckIn}</Text>
+            <Text style={styles.statsText}>Submit by: {nextCheckIn}</Text>
           </View>
         </View>
       </View>
@@ -133,9 +133,6 @@ const MemberStatusBar: React.FC<MemberStatusBarProps> = ({
               style={styles.modalAvatar}
             />
             <Text style={styles.modalName}>{selectedMember?.preferred_name || 'Anonymous'}</Text>
-            {selectedMember?.email && (
-              <Text style={styles.modalEmail}>{selectedMember.email}</Text>
-            )}
             {selectedMember?.bio && (
               <Text style={styles.modalBio}>{selectedMember.bio}</Text>
             )}
@@ -168,7 +165,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 77,
-    height: 120,
+    height: 130,
     backgroundColor: '#FFF',
     borderTopWidth: 4,
     borderTopColor: 'rgba(58, 185, 249, 0.11)',
@@ -180,7 +177,7 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     width: 355,
-    height: 105,
+    height: 115,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -191,6 +188,7 @@ const styles = StyleSheet.create({
     height: 71,
     justifyContent: 'center',
     gap: 4,
+    marginTop: 8,
   },
   memberCol: {
     flexDirection: 'column',
@@ -209,12 +207,12 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 3,
-    height: 27,
+    paddingHorizontal: 1,
+    height: 24,
     borderRadius: 44,
     backgroundColor: 'rgba(40, 125, 0, 0.03)',
     marginTop: 2,
-    gap: 4,
+    gap: 1,
   },
   statusDone: {
     backgroundColor: 'rgba(40, 125, 0, 0.03)',
@@ -225,8 +223,8 @@ const styles = StyleSheet.create({
   statusText: {
     fontFamily: 'Open Sans',
     fontWeight: '700',
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: 'center',
   },
   statusTextDone: {
@@ -238,17 +236,17 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: 355,
-    height: 28,
+    height: 48,
     marginTop: 6,
     gap: 2,
   },
   statsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderRadius: 44,
     backgroundColor: 'rgba(58, 185, 249, 0.06)',
     marginHorizontal: 2,
@@ -259,7 +257,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Open Sans',
     fontWeight: '600',
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 14,
     textAlign: 'center',
     color: '#000',
     marginLeft: 4,

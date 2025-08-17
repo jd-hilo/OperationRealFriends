@@ -4,6 +4,7 @@ import { Platform, Alert, Linking } from 'react-native';
 import { supabase } from './supabase';
 
 // Configure how notifications appear when the app is in the foreground
+// This is moved outside of any component to avoid useInsertionEffect errors
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,

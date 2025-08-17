@@ -126,9 +126,18 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
   );
 };
 
+// Simple cache for geocoding results to avoid re-processing the same postal codes
+const geocodeCache = new Map<string, {latitude: number, longitude: number, country: string}>();
+
 // Function to get coordinates from postal code
 const getCoordinatesFromPostalCode = async (postalCode: string) => {
   try {
+    // Check cache first for instant results
+    if (geocodeCache.has(postalCode)) {
+      console.log('Geocoding cache hit for:', postalCode);
+      return geocodeCache.get(postalCode);
+    }
+    
     console.log('Geocoding postal code:', postalCode);
     
     // For US ZIP codes, add "USA" to improve accuracy
@@ -148,7 +157,11 @@ const getCoordinatesFromPostalCode = async (postalCode: string) => {
         longitude: parseFloat(data[0].lon),
         country: data[0].display_name.split(',').pop()?.trim() || 'Unknown'
       };
-      console.log('Geocoding result:', result);
+      
+      // Cache the result for future use
+      geocodeCache.set(postalCode, result);
+      console.log('Geocoding result cached for:', postalCode);
+      
       return result;
     }
     
@@ -523,53 +536,74 @@ export default function Dashboard() {
         }
       }
 
-      // Get coordinates for each member's postal code
+      // Get coordinates for each member's postal code - PARALLEL PROCESSING for speed
       const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
-      for (const member of groupMembers || []) {
+      
+      // Process all locations in parallel instead of sequentially
+      const locationPromises = (groupMembers || []).map(async (member) => {
         try {
           console.log('[fetchData] Processing member:', member.email, 'Location:', member.location);
-          if (member.location) {
-            const coords = await getCoordinatesFromPostalCode(member.location);
-            console.log('[fetchData] Geocode result:', coords);
-            if (coords) {
-              locations[member.id] = {
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-                name: member.email?.split('@')[0] || 'Anonymous',
-                country: coords.country
-              };
-              console.log('[fetchData] Added location for member:', member.email, locations[member.id]);
-            } else {
-              console.log('[fetchData] No coordinates found for member:', member.email);
-              // Default location if geocoding fails
-              locations[member.id] = {
+          
+          if (!member.location || member.location === '') {
+            console.log('[fetchData] No location set for member:', member.email);
+            return {
+              id: member.id,
+              location: {
                 latitude: 0,
                 longitude: 0,
                 name: member.email?.split('@')[0] || 'Anonymous',
                 country: 'Location not set'
-              };
-            }
+              }
+            };
+          }
+          
+          const coords = await getCoordinatesFromPostalCode(member.location);
+          console.log('[fetchData] Geocode result:', coords);
+          
+          if (coords) {
+            return {
+              id: member.id,
+              location: {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                name: member.email?.split('@')[0] || 'Anonymous',
+                country: coords.country
+              }
+            };
           } else {
-            console.log('[fetchData] No location set for member:', member.email);
-            // Default location for users without a postal code
-            locations[member.id] = {
-              latitude: 0,
-              longitude: 0,
-              name: member.email?.split('@')[0] || 'Anonymous',
-              country: 'Location not set'
+            console.log('[fetchData] No coordinates found for member:', member.email);
+            return {
+              id: member.id,
+              location: {
+                latitude: 0,
+                longitude: 0,
+                name: member.email?.split('@')[0] || 'Anonymous',
+                country: 'Location not set'
+              }
             };
           }
         } catch (error) {
           console.error(`[fetchData] Error getting coordinates for user ${member.id}:`, error);
-          // Add user with default location if there's an error
-          locations[member.id] = {
-            latitude: 0,
-            longitude: 0,
-            name: member.email?.split('@')[0] || 'Anonymous',
-            country: 'Location not set'
+          return {
+            id: member.id,
+            location: {
+              latitude: 0,
+              longitude: 0,
+              name: member.email?.split('@')[0] || 'Anonymous',
+              country: 'Location not set'
+            }
           };
         }
-      }
+      });
+      
+      // Wait for all geocoding to complete in parallel
+      const locationResults = await Promise.all(locationPromises);
+      
+      // Build the final locations object
+      locationResults.forEach(result => {
+        locations[result.id] = result.location;
+        console.log('[fetchData] Added location for member:', result.id, result.location);
+      });
       console.log('[fetchData] Final locations object:', locations);
       setUserLocations(locations);
 
@@ -944,18 +978,7 @@ export default function Dashboard() {
         end={{ x: 0, y: 1 }}
         style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
       >
-        <Animated.View style={[styles.queueIconWrapper, { transform: [{ rotate: spin }, { scale: scale }] }]}> 
-          <Image
-            source={require('../../assets/globe.png')}
-            style={styles.queueIcon}
-            resizeMode="contain"
-          />
-          <Image 
-            source={require('../../assets/logo.png')} 
-            style={styles.queueLogo}
-            resizeMode="contain"
-          />
-        </Animated.View>
+        <LoadingSpinner size="large" />
         <Text style={styles.loadingText}>Connecting you with your group around the world...</Text>
       </LinearGradient>
     );
@@ -1197,6 +1220,12 @@ export default function Dashboard() {
 
               <View style={styles.buttonContainer}>
                 <TouchableOpacity
+                  style={styles.signOutButton}
+                  onPress={handleSignOut}
+                >
+                  <Text style={styles.signOutButtonText}>Sign Out</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={styles.closeButton}
                   onPress={() => setShowResultsModal(false)}
                 >
@@ -1277,38 +1306,15 @@ export default function Dashboard() {
             members={group?.members || []}
             promptCount={group?.prompts?.length || 0}
             mapComponent={<GroupMap userLocations={userLocations} checkedIn={checkedIn} currentUserId={user?.id || ''} />}
+            checkedIn={checkedIn}
+            onShareLocation={() => setCheckedIn(true)}
           />
-          {!checkedIn && (
-            <View style={{ alignItems: 'center', marginTop: 8 }}>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: theme.colors.primary,
-                  borderRadius: 20,
-                  paddingVertical: 10,
-                  paddingHorizontal: 32,
-                  marginBottom: 4,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-                onPress={() => setCheckedIn(true)}
-                activeOpacity={0.85}
-              >
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Share Location</Text>
-              </TouchableOpacity>
-              <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', maxWidth: 220 }}>
-                Your location is only shown after you check in. It is not specific.
-              </Text>
-            </View>
-          )}
         </View>
         <View style={styles.section}>
           <PromptCard
             promptType={currentPrompt?.prompt_type === 'photo' ? 'photo' : 'text'}
             date={(() => {
-              const d = currentPrompt?.created_at ? new Date(currentPrompt.created_at) : new Date();
+              const d = new Date();
               return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
             })()}
             prompt={typeof group?.current_prompt === 'string' ? group.current_prompt : currentPrompt?.content || ''}
@@ -1403,6 +1409,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  signOutButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
   },
   scrollContent: {
     padding: theme.spacing.lg,
@@ -1972,6 +1983,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E5E5',
     gap: 10,
   },
+
   closeButton: {
     flex: 1,
     padding: 12,

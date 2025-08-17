@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity } from 'react-native';
 import { theme } from '../constants/theme';
 
 interface Member {
@@ -14,6 +14,8 @@ interface GroupCardProps {
   members: Member[];
   promptCount: number;
   mapComponent: React.ReactNode;
+  checkedIn?: boolean;
+  onShareLocation?: () => void;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -22,6 +24,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
   members,
   promptCount,
   mapComponent,
+  checkedIn = false,
+  onShareLocation,
 }) => {
   const previewMembers = members.slice(0, 2);
   const extraCount = members.length - 2;
@@ -51,6 +55,22 @@ const GroupCard: React.FC<GroupCardProps> = ({
       </View>
       {/* Map with member avatars */}
       <View style={styles.mapContainer}>{mapComponent}</View>
+      
+      {/* Share Location Button */}
+      {!checkedIn && onShareLocation && (
+        <View style={styles.shareLocationContainer}>
+          <TouchableOpacity
+            style={styles.shareLocationButton}
+            onPress={onShareLocation}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.shareLocationButtonText}>Share Location</Text>
+          </TouchableOpacity>
+          <Text style={styles.shareLocationHint}>
+            Your location is only shown after you check in. It is not specific.
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -58,7 +78,6 @@ const GroupCard: React.FC<GroupCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: 350,
-    height: 269,
     backgroundColor: '#FAFAFA',
     borderRadius: 32,
     paddingTop: 20,
@@ -137,7 +156,35 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginTop: 12,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  shareLocationContainer: {
+    alignItems: 'center',
+    marginTop: 0,
+    paddingTop: 8,
+  },
+  shareLocationButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 32,
+    marginBottom: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  shareLocationButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  shareLocationHint: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    maxWidth: 220,
   }
 });
 

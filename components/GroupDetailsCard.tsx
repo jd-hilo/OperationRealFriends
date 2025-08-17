@@ -67,14 +67,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    fontSize: 20,
+    fontSize: 18,
     color: '#111',
     marginBottom: 2,
     textAlign: 'center',
   },
   subtitle: {
     fontWeight: '400',
-    fontSize: 15,
+    fontSize: 13,
     color: '#444',
     marginBottom: 8,
     textAlign: 'center',
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   factText: {
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
     color: '#222',
     textAlign: 'center',
     maxWidth: 150,

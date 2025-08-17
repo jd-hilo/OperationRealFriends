@@ -20,12 +20,6 @@ const PromptCard: React.FC<PromptCardProps> = ({ promptType, date, prompt, timeL
           <View style={styles.dateBox}>
             <Text style={styles.dateDay}>{date.split(' ')[0]}</Text>
             <Text style={styles.dateMonth}>{date.split(' ')[1]}</Text>
-            <LinearGradient
-              colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.dateUnderline}
-            />
           </View>
         </View>
         <View style={styles.timerCircle}>
@@ -78,7 +72,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: '100%',
     marginBottom: 8,
   },
@@ -213,13 +207,7 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     lineHeight: 16,
   },
-  dateUnderline: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2,
-  },
+
 });
 
 export default PromptCard; 
