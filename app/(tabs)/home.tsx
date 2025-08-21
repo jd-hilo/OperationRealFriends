@@ -1080,13 +1080,13 @@ export default function Dashboard() {
         })}
       </View>
         <Text style={styles.queueSubtitle}>
-          Enable notifications to be alerted when you are matched with a group.
+          Join the queue to be matched with compatible group members.
         </Text>
-        {/* Notify Me button and message at the bottom */}
+        {/* Join the Queue button and message at the bottom */}
         <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center', width: '100%' }}>
           <TouchableOpacity 
             style={styles.queueButton}
-            onPress={handleNotifyMe}
+            onPress={() => Linking.openURL('https://wt.ls/pact')}
           >
             <View style={styles.queueButtonInner}>
               <LinearGradient
@@ -1095,7 +1095,7 @@ export default function Dashboard() {
                 end={{ x: 1, y: 0 }}
                 style={styles.queueButtonGradient}
               >
-                <Text style={styles.queueButtonText}>Notify Me</Text>
+                <Text style={styles.queueButtonText}>Join the Queue</Text>
               </LinearGradient>
             </View>
           </TouchableOpacity>
