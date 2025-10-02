@@ -14,7 +14,15 @@ import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider, useAuth } from "../lib/auth";
 import * as Notifications from "expo-notifications";
 import { View, ActivityIndicator } from "react-native";
-
+import { Mixpanel } from 'mixpanel-react-native';
+const trackAutomaticEvents = false;
+const useNative = false;
+export const mixpanel = new Mixpanel(
+  'f500b52ae88a2aa0a4b91fe098ceca03',
+  trackAutomaticEvents,
+  useNative
+);
+mixpanel.init();
 // Configure how notifications appear when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

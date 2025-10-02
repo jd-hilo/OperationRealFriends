@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Linking,
   AppState,
   Modal,
-} from 'react-native';
+} from "react-native";
 import {
   Clock,
   Award,
@@ -26,28 +26,33 @@ import {
   Type,
   MapPin,
   Info,
-} from 'lucide-react-native';
-import { router } from 'expo-router';
-import { theme } from '../../constants/theme';
-import Card from '../../components/Card';
-import { supabase } from '../../lib/supabase';
-import { Group, Prompt, Submission, User } from '../../types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuth } from '../../lib/auth';
-import MapView, { Marker } from 'react-native-maps';
-import { registerForPushNotificationsAsync, savePushToken, sendTestNotification } from '../../lib/notifications';
-import LoadingSpinner from '../../components/LoadingSpinner';
-import { updateGroupStreak } from '../../lib/groupStreak';
-import GroupCard from '../../components/GroupCard';
-import GroupMap from '../../components/GroupMap';
-import PromptCard from '../../components/PromptCard';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import GroupDetailsCard from '../../components/GroupDetailsCard';
-import MatchReasonCard from '../../components/MatchReasonCard';
-import { useFonts } from 'expo-font';
+} from "lucide-react-native";
+import { router } from "expo-router";
+import { theme } from "../../constants/theme";
+import Card from "../../components/Card";
+import { supabase } from "../../lib/supabase";
+import { Group, Prompt, Submission, User } from "../../types";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAuth } from "../../lib/auth";
+import MapView, { Marker } from "react-native-maps";
+import {
+  registerForPushNotificationsAsync,
+  savePushToken,
+  sendTestNotification,
+} from "../../lib/notifications";
+import LoadingSpinner from "../../components/LoadingSpinner";
+import { updateGroupStreak } from "../../lib/groupStreak";
+import GroupCard from "../../components/GroupCard";
+import GroupMap from "../../components/GroupMap";
+import PromptCard from "../../components/PromptCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import GroupDetailsCard from "../../components/GroupDetailsCard";
+import MatchReasonCard from "../../components/MatchReasonCard";
+import { useFonts } from "expo-font";
+import { mixpanel } from "app/_layout";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 interface LocationPinProps {
   x: number;
@@ -97,7 +102,11 @@ const LocationPin: React.FC<LocationPinProps> = ({ x, y, delay }) => {
           },
         ]}
       />
-      <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.primary} />
+      <MaterialCommunityIcons
+        name="map-marker"
+        size={24}
+        color={theme.colors.primary}
+      />
     </View>
   );
 };
@@ -108,11 +117,17 @@ interface MemberAvatarProps {
   index: number;
 }
 
-const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) => {
+const MemberAvatar: React.FC<MemberAvatarProps> = ({
+  user,
+  submitted,
+  index,
+}) => {
   return (
     <View style={styles.avatarContainer}>
       <Image
-        source={{ uri: user.avatar_url || `https://i.pravatar.cc/150?img=${index + 1}` }}
+        source={{
+          uri: user.avatar_url || `https://i.pravatar.cc/150?img=${index + 1}`,
+        }}
         style={styles.avatar}
       />
       {!submitted && (
@@ -127,104 +142,181 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ user, submitted, index }) =
 };
 
 // Simple cache for geocoding results to avoid re-processing the same postal codes
-const geocodeCache = new Map<string, {latitude: number, longitude: number, country: string}>();
+const geocodeCache = new Map<
+  string,
+  { latitude: number; longitude: number; country: string }
+>();
 
 // Function to get coordinates from postal code
 const getCoordinatesFromPostalCode = async (postalCode: string) => {
   try {
     // Check cache first for instant results
     if (geocodeCache.has(postalCode)) {
-      console.log('Geocoding cache hit for:', postalCode);
+      console.log("Geocoding cache hit for:", postalCode);
       return geocodeCache.get(postalCode);
     }
-    
-    console.log('Geocoding postal code:', postalCode);
-    
+
+    console.log("Geocoding postal code:", postalCode);
+
     // For US ZIP codes, add "USA" to improve accuracy
-    const searchQuery = postalCode.length === 5 ? `${postalCode}, USA` : postalCode;
-    console.log('Search query:', searchQuery);
-    
+    const searchQuery =
+      postalCode.length === 5 ? `${postalCode}, USA` : postalCode;
+    console.log("Search query:", searchQuery);
+
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        searchQuery
+      )}`
     );
     const data = await response.json();
-    
-    console.log('Geocoding response:', data);
-    
+
+    console.log("Geocoding response:", data);
+
     if (data && data.length > 0) {
       const result = {
         latitude: parseFloat(data[0].lat),
         longitude: parseFloat(data[0].lon),
-        country: data[0].display_name.split(',').pop()?.trim() || 'Unknown'
+        country: data[0].display_name.split(",").pop()?.trim() || "Unknown",
       };
-      
+
       // Cache the result for future use
       geocodeCache.set(postalCode, result);
-      console.log('Geocoding result cached for:', postalCode);
-      
+      console.log("Geocoding result cached for:", postalCode);
+
       return result;
     }
-    
-    console.log('No results found for postal code:', postalCode);
+
+    console.log("No results found for postal code:", postalCode);
     return null;
   } catch (error) {
-    console.error('Error geocoding postal code:', error);
+    console.error("Error geocoding postal code:", error);
     return null;
   }
 };
 
 // Simple country to continent mapping
 const countryToContinent = (country: string) => {
-  if (!country) return 'Unknown';
+  if (!country) return "Unknown";
   const mapping: Record<string, string> = {
-    'United States': 'North America',
-    'Canada': 'North America',
-    'Mexico': 'North America',
-    'Brazil': 'South America',
-    'Argentina': 'South America',
-    'United Kingdom': 'Europe',
-    'France': 'Europe',
-    'Germany': 'Europe',
-    'India': 'Asia',
-    'China': 'Asia',
-    'Japan': 'Asia',
-    'Australia': 'Oceania',
-    'South Africa': 'Africa',
+    "United States": "North America",
+    Canada: "North America",
+    Mexico: "North America",
+    Brazil: "South America",
+    Argentina: "South America",
+    "United Kingdom": "Europe",
+    France: "Europe",
+    Germany: "Europe",
+    India: "Asia",
+    China: "Asia",
+    Japan: "Asia",
+    Australia: "Oceania",
+    "South Africa": "Africa",
     // ...add more as needed
   };
   return mapping[country] || country;
 };
 
 const personalityTypes = [
-  { 
-    type: 'The Explorer', 
-    icon: '🧭', 
-    description: 'Curious and adventurous, always seeking new experiences and ideas.',
+  {
+    type: "The Explorer",
+    icon: "🧭",
+    description:
+      "Curious and adventurous, always seeking new experiences and ideas.",
     depthExample: `Your responses reveal a natural inclination towards discovery and experimentation. You consistently show enthusiasm for venturing into unknown territories, whether in conversations, activities, or intellectual pursuits.
 
 Your thought patterns demonstrate remarkable adaptability and openness to new perspectives. You tend to approach challenges as opportunities for learning, showing a genuine excitement for understanding different viewpoints and methodologies.
 
-The way you process information indicates a strong drive for personal growth through experience. Your answers suggest you're most energized when pushing boundaries and challenging conventional wisdom, making you a true Explorer at heart.`
+The way you process information indicates a strong drive for personal growth through experience. Your answers suggest you're most energized when pushing boundaries and challenging conventional wisdom, making you a true Explorer at heart.`,
   },
-  { type: 'The Connector', icon: '🤝', description: 'Warm and outgoing, thrives on building relationships and bringing people together.' },
-  { type: 'The Organizer', icon: '📋', description: 'Detail-oriented and structured, excels at planning and keeping projects on track.' },
-  { type: 'The Thinker', icon: '🤔', description: 'Reflective and analytical, enjoys deep conversations and solving complex problems.' },
-  { type: 'The Achiever', icon: '🏆', description: 'Goal-driven and energetic, constantly setting and reaching new milestones.' },
-  { type: 'The Supporter', icon: '🤗', description: 'Compassionate and dependable, offers encouragement and a listening ear.' },
-  { type: 'The Visionary', icon: '🌟', description: 'Imaginative and future-focused, loves brainstorming big ideas and possibilities.' },
-  { type: 'The Realist', icon: '⚖️', description: 'Practical and grounded, values clear plans and tangible results.' },
-  { type: 'The Innovator', icon: '💡', description: 'Creative and bold, often comes up with unconventional solutions.' },
-  { type: 'The Reflector', icon: '🪞', description: 'Quiet and introspective, gains insight through observation and self-reflection.' },
-  { type: 'The Strategist', icon: '🗺️', description: 'Logical and forward-thinking, maps out pathways to success with precision.' },
-  { type: 'The Motivator', icon: '🚀', description: 'Enthusiastic and inspiring, sparks energy and optimism in others.' },
-  { type: 'The Analyst', icon: '📊', description: 'Methodical and data-driven, relies on facts and evidence to guide decisions.' },
-  { type: 'The Enthusiast', icon: '🎉', description: 'Spontaneous and fun-loving, brings excitement and positivity to every situation.' },
-  { type: 'The Harmonizer', icon: '🕊️', description: 'Peacemaking and cooperative, excels at resolving conflicts and fostering teamwork.' },
+  {
+    type: "The Connector",
+    icon: "🤝",
+    description:
+      "Warm and outgoing, thrives on building relationships and bringing people together.",
+  },
+  {
+    type: "The Organizer",
+    icon: "📋",
+    description:
+      "Detail-oriented and structured, excels at planning and keeping projects on track.",
+  },
+  {
+    type: "The Thinker",
+    icon: "🤔",
+    description:
+      "Reflective and analytical, enjoys deep conversations and solving complex problems.",
+  },
+  {
+    type: "The Achiever",
+    icon: "🏆",
+    description:
+      "Goal-driven and energetic, constantly setting and reaching new milestones.",
+  },
+  {
+    type: "The Supporter",
+    icon: "🤗",
+    description:
+      "Compassionate and dependable, offers encouragement and a listening ear.",
+  },
+  {
+    type: "The Visionary",
+    icon: "🌟",
+    description:
+      "Imaginative and future-focused, loves brainstorming big ideas and possibilities.",
+  },
+  {
+    type: "The Realist",
+    icon: "⚖️",
+    description:
+      "Practical and grounded, values clear plans and tangible results.",
+  },
+  {
+    type: "The Innovator",
+    icon: "💡",
+    description:
+      "Creative and bold, often comes up with unconventional solutions.",
+  },
+  {
+    type: "The Reflector",
+    icon: "🪞",
+    description:
+      "Quiet and introspective, gains insight through observation and self-reflection.",
+  },
+  {
+    type: "The Strategist",
+    icon: "🗺️",
+    description:
+      "Logical and forward-thinking, maps out pathways to success with precision.",
+  },
+  {
+    type: "The Motivator",
+    icon: "🚀",
+    description:
+      "Enthusiastic and inspiring, sparks energy and optimism in others.",
+  },
+  {
+    type: "The Analyst",
+    icon: "📊",
+    description:
+      "Methodical and data-driven, relies on facts and evidence to guide decisions.",
+  },
+  {
+    type: "The Enthusiast",
+    icon: "🎉",
+    description:
+      "Spontaneous and fun-loving, brings excitement and positivity to every situation.",
+  },
+  {
+    type: "The Harmonizer",
+    icon: "🕊️",
+    description:
+      "Peacemaking and cooperative, excels at resolving conflicts and fostering teamwork.",
+  },
 ];
 
 export default function Dashboard() {
   const [fontsLoaded] = useFonts({
-    'PlanetComic': require('../../assets/fonts/PlanetComic.ttf'),
+    PlanetComic: require("../../assets/fonts/PlanetComic.ttf"),
   });
   if (!fontsLoaded) {
     return null;
@@ -235,16 +327,23 @@ export default function Dashboard() {
   const [currentPrompt, setCurrentPrompt] = useState<Prompt | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [hasCompletedQuiz, setHasCompletedQuiz] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [response, setResponse] = useState('');
+  const [response, setResponse] = useState("");
   const [fadeAnim] = useState(new Animated.Value(0));
   const [promptDueDate, setPromptDueDate] = useState<Date | null>(null);
   const hasRefreshedRef = useRef(false);
-  const [userLocations, setUserLocations] = useState<{[key: string]: {latitude: number, longitude: number, name: string, country: string}}>({});
+  const [userLocations, setUserLocations] = useState<{
+    [key: string]: {
+      latitude: number;
+      longitude: number;
+      name: string;
+      country: string;
+    };
+  }>({});
   const [scrollY] = useState(new Animated.Value(0));
   const [lastScrollY, setLastScrollY] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -252,7 +351,8 @@ export default function Dashboard() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const [messages, setMessages] = useState<any[]>([]);
   const [continentCount, setContinentCount] = useState(0);
-  const [submissionsToCurrentPrompt, setSubmissionsToCurrentPrompt] = useState(0);
+  const [submissionsToCurrentPrompt, setSubmissionsToCurrentPrompt] =
+    useState(0);
   const [checkedIn, setCheckedIn] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [userData, setUserData] = useState<{
@@ -263,10 +363,10 @@ export default function Dashboard() {
 
   // Animated group member card setup
   const memberData = [
-    { emoji: '😎', label: 'loading' },
-    { emoji: '🤩', label: 'loading' },
-    { emoji: '👻', label: 'loading' },
-    { emoji: '😊', label: 'You' },
+    { emoji: "😎", label: "loading" },
+    { emoji: "🤩", label: "loading" },
+    { emoji: "👻", label: "loading" },
+    { emoji: "😊", label: "You" },
   ];
   const memberAnims = memberData.map(() => ({
     translateY: useRef(new Animated.Value(40)).current,
@@ -304,84 +404,93 @@ export default function Dashboard() {
     if (!groupData.current_prompt_id || !groupData.members) return;
 
     const now = new Date();
-    const dueDate = new Date(groupData.next_prompt_due || '');
-    
-    console.log('Checking group status:');
-    console.log('Current time:', now.toISOString());
-    console.log('Due date:', dueDate.toISOString());
-    console.log('Is time up?', now > dueDate);
-    
+    const dueDate = new Date(groupData.next_prompt_due || "");
+
+    console.log("Checking group status:");
+    console.log("Current time:", now.toISOString());
+    console.log("Due date:", dueDate.toISOString());
+    console.log("Is time up?", now > dueDate);
+
     // If time is up and not enough members submitted
     if (now > dueDate) {
-      const submittedCount = groupData.members.filter(m => m.submitted).length;
-      console.log('Total members:', groupData.members.length);
-      console.log('Submitted count:', submittedCount);
-      console.log('Minimum required:', groupData.members.length - 1);
-      
-      if (submittedCount < groupData.members.length - 1) { // Less than n-1 members submitted
-        console.log('Not enough submissions, disbanding group');
-        
+      const submittedCount = groupData.members.filter(
+        (m) => m.submitted
+      ).length;
+      console.log("Total members:", groupData.members.length);
+      console.log("Submitted count:", submittedCount);
+      console.log("Minimum required:", groupData.members.length - 1);
+
+      if (submittedCount < groupData.members.length - 1) {
+        // Less than n-1 members submitted
+        console.log("Not enough submissions, disbanding group");
+
         // Update all members to remove group assignment but keep quiz completion status
         const { error: updateError } = await supabase
-          .from('users')
-          .update({ 
+          .from("users")
+          .update({
             current_group_id: null,
-            submitted: false // Reset submission status
+            submitted: false, // Reset submission status
           })
-          .in('id', groupData.members.map(m => m.id));
+          .in(
+            "id",
+            groupData.members.map((m) => m.id)
+          );
 
         if (updateError) {
-          console.error('Error disbanding group:', updateError);
+          console.error("Error disbanding group:", updateError);
           return;
         }
 
         // Delete the group
         const { error: deleteError } = await supabase
-          .from('groups')
+          .from("groups")
           .delete()
-          .eq('id', groupData.id);
+          .eq("id", groupData.id);
 
         if (deleteError) {
-          console.error('Error deleting group:', deleteError);
+          console.error("Error deleting group:", deleteError);
           return;
         }
 
-        console.log('Group successfully disbanded');
+        console.log("Group successfully disbanded");
         setGroup(null);
         return;
       } else {
-        console.log('Enough members submitted, keeping group');
+        console.log("Enough members submitted, keeping group");
         // Update the streak count
         await updateGroupStreak(groupData.id);
       }
     } else {
-      console.log('Time not up yet');
+      console.log("Time not up yet");
     }
   };
 
   const fetchData = async () => {
-    console.log('[fetchData] Called');
+    console.log("[fetchData] Called");
     if (!user) {
-      console.log('[fetchData] No user available');
+      console.log("[fetchData] No user available");
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      console.log('[fetchData] Fetching data for user:', user.id);
+      console.log("[fetchData] Fetching data for user:", user.id);
 
       // First, ensure user exists in the database
-      console.log('[fetchData] Checking if user exists in DB');
+      console.log("[fetchData] Checking if user exists in DB");
       const { data: existingUser, error: userCheckError } = await supabase
-        .from('users')
-        .select('*, personalitytype, personalitydescription, personalitydepth')
-        .eq('id', user.id)
+        .from("users")
+        .select("*, personalitytype, personalitydescription, personalitydepth")
+        .eq("id", user.id)
         .single();
-      console.log('[fetchData] User check result:', { existingUser, userCheckError });
+      console.log("[fetchData] User check result:", {
+        existingUser,
+        userCheckError,
+      });
 
-      if (userCheckError && userCheckError.code !== 'PGRST116') {
-        console.error('[fetchData] Error checking user:', userCheckError);
+      if (userCheckError && userCheckError.code !== "PGRST116") {
+        console.error("[fetchData] Error checking user:", userCheckError);
         throw userCheckError;
       }
 
@@ -390,29 +499,32 @@ export default function Dashboard() {
         setUserData({
           personalitytype: existingUser.personalitytype || null,
           personalitydescription: existingUser.personalitydescription || null,
-          personalitydepth: existingUser.personalitydepth || null
+          personalitydepth: existingUser.personalitydepth || null,
         });
       }
 
       // If user doesn't exist, create them
       if (!existingUser) {
-        console.log('[fetchData] Creating new user in database');
+        console.log("[fetchData] Creating new user in database");
         const { data: newUser, error: createError } = await supabase
-          .from('users')
+          .from("users")
           .insert([
             {
               id: user.id,
               email: user.email,
               created_at: new Date().toISOString(),
-              has_completed_quiz: false
-            }
+              has_completed_quiz: false,
+            },
           ])
           .select()
           .single();
-        console.log('[fetchData] User creation result:', { newUser, createError });
+        console.log("[fetchData] User creation result:", {
+          newUser,
+          createError,
+        });
 
         if (createError) {
-          console.error('[fetchData] Error creating user:', createError);
+          console.error("[fetchData] Error creating user:", createError);
           throw createError;
         }
 
@@ -425,11 +537,14 @@ export default function Dashboard() {
 
       // Now fetch the user's quiz status
       setHasCompletedQuiz(existingUser.has_completed_quiz || false);
-      console.log('[fetchData] User quiz status:', existingUser.has_completed_quiz);
+      console.log(
+        "[fetchData] User quiz status:",
+        existingUser.has_completed_quiz
+      );
 
       // If quiz is not completed, don't fetch group data
       if (!existingUser.has_completed_quiz) {
-        console.log('[fetchData] Quiz not completed, skipping group fetch');
+        console.log("[fetchData] Quiz not completed, skipping group fetch");
         setGroup(null);
         setCurrentPrompt(null);
         setSubmissions([]);
@@ -437,11 +552,14 @@ export default function Dashboard() {
       }
 
       // Debug: Check if user has a current_group_id
-      console.log('[fetchData] User current_group_id:', existingUser.current_group_id);
+      console.log(
+        "[fetchData] User current_group_id:",
+        existingUser.current_group_id
+      );
 
       // If user has no group, show join group screen
       if (!existingUser.current_group_id) {
-        console.log('[fetchData] User has no group assigned');
+        console.log("[fetchData] User has no group assigned");
         setGroup(null);
         setCurrentPrompt(null);
         setSubmissions([]);
@@ -449,86 +567,128 @@ export default function Dashboard() {
       }
 
       // Fetch group data with the prompt using a join
-      console.log('[fetchData] Fetching group data for group:', existingUser.current_group_id);
+      console.log(
+        "[fetchData] Fetching group data for group:",
+        existingUser.current_group_id
+      );
       const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .select(`
+        .from("groups")
+        .select(
+          `
           *,
           prompts!current_prompt_id(*)
-        `)
-        .eq('id', existingUser.current_group_id)
+        `
+        )
+        .eq("id", existingUser.current_group_id)
         .single();
-      console.log('[fetchData] Group fetch result:', { groupData, groupError });
+      console.log("[fetchData] Group fetch result:", { groupData, groupError });
 
       if (groupError) {
-        console.error('[fetchData] Error fetching group:', groupError);
+        console.error("[fetchData] Error fetching group:", groupError);
         return;
       }
 
       if (!groupData) {
-        console.error('[fetchData] No group found for user');
+        console.error("[fetchData] No group found for user");
         return;
       }
 
       // Use the next_prompt_due from the group table
       if (groupData.next_prompt_due) {
-        console.log('[fetchData] Next prompt due:', groupData.next_prompt_due);
+        console.log("[fetchData] Next prompt due:", groupData.next_prompt_due);
         const nextPromptDue = new Date(groupData.next_prompt_due);
         setPromptDueDate(nextPromptDue);
         // Initialize timer display
         const now = new Date();
         if (now > nextPromptDue) {
-          setTimeLeft('Next prompt coming soon!');
+          setTimeLeft("Next prompt coming soon!");
         } else {
-          const hours = Math.floor((nextPromptDue.getTime() - now.getTime()) / (1000 * 60 * 60));
-          const minutes = Math.floor(((nextPromptDue.getTime() - now.getTime()) % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor(((nextPromptDue.getTime() - now.getTime()) % (1000 * 60)) / 1000);
+          const hours = Math.floor(
+            (nextPromptDue.getTime() - now.getTime()) / (1000 * 60 * 60)
+          );
+          const minutes = Math.floor(
+            ((nextPromptDue.getTime() - now.getTime()) % (1000 * 60 * 60)) /
+              (1000 * 60)
+          );
+          const seconds = Math.floor(
+            ((nextPromptDue.getTime() - now.getTime()) % (1000 * 60)) / 1000
+          );
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s until next prompt`);
         }
       } else {
-        console.log('[fetchData] No next_prompt_due set for group');
-        setTimeLeft('Next prompt time not set');
+        console.log("[fetchData] No next_prompt_due set for group");
+        setTimeLeft("Next prompt time not set");
       }
 
       setGroup(groupData);
       setCurrentPrompt(groupData.prompts);
 
       // Check group status (submissions and time)
-      console.log('[fetchData] Checking group status');
+      console.log("[fetchData] Checking group status");
       await checkGroupStatus(groupData);
 
       // Fetch all users in this group
-      console.log('[fetchData] Fetching group members for group:', groupData.id);
+      console.log(
+        "[fetchData] Fetching group members for group:",
+        groupData.id
+      );
       const { data: groupMembers, error: membersError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('current_group_id', groupData.id);
-      console.log('[fetchData] Group members fetch result:', { groupMembers, membersError });
+        .from("users")
+        .select("*")
+        .eq("current_group_id", groupData.id);
+      console.log("[fetchData] Group members fetch result:", {
+        groupMembers,
+        membersError,
+      });
 
       if (membersError) {
-        console.error('[fetchData] Error fetching group members:', membersError);
+        console.error(
+          "[fetchData] Error fetching group members:",
+          membersError
+        );
       } else {
         // Fetch submissions for the current prompt
-        console.log('[fetchData] Fetching submissions for group:', groupData.id, 'prompt:', groupData.current_prompt_id);
-        const { data: currentSubmissions, error: submissionsError } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('group_id', groupData.id)
-          .eq('prompt_id', groupData.current_prompt_id);
-        console.log('[fetchData] Submissions fetch result:', { currentSubmissions, submissionsError });
+        console.log(
+          "[fetchData] Fetching submissions for group:",
+          groupData.id,
+          "prompt:",
+          groupData.current_prompt_id
+        );
+        const { data: currentSubmissions, error: submissionsError } =
+          await supabase
+            .from("submissions")
+            .select("*")
+            .eq("group_id", groupData.id)
+            .eq("prompt_id", groupData.current_prompt_id);
+        console.log("[fetchData] Submissions fetch result:", {
+          currentSubmissions,
+          submissionsError,
+        });
 
         if (submissionsError) {
-          console.error('[fetchData] Error fetching submissions:', submissionsError);
+          console.error(
+            "[fetchData] Error fetching submissions:",
+            submissionsError
+          );
         } else {
           // Update member submission status based on current prompt submissions
-          const updatedMembers = groupMembers.map(member => ({
+          const updatedMembers = groupMembers.map((member) => ({
             ...member,
-            submitted: currentSubmissions?.some(sub => sub.user_id === member.id) || false
+            submitted:
+              currentSubmissions?.some((sub) => sub.user_id === member.id) ||
+              false,
           }));
-          console.log('[fetchData] Updated members with submission status:', updatedMembers);
-          setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
+          console.log(
+            "[fetchData] Updated members with submission status:",
+            updatedMembers
+          );
+          setGroup((prev) =>
+            prev ? { ...prev, members: updatedMembers } : null
+          );
           if (currentSubmissions) {
-            const uniqueUserIds = new Set(currentSubmissions.map(sub => sub.user_id));
+            const uniqueUserIds = new Set(
+              currentSubmissions.map((sub) => sub.user_id)
+            );
             setSubmissionsToCurrentPrompt(uniqueUserIds.size);
           } else {
             setSubmissionsToCurrentPrompt(0);
@@ -537,83 +697,108 @@ export default function Dashboard() {
       }
 
       // Get coordinates for each member's postal code - PARALLEL PROCESSING for speed
-      const locations: {[key: string]: {latitude: number, longitude: number, name: string, country: string}} = {};
-      
+      const locations: {
+        [key: string]: {
+          latitude: number;
+          longitude: number;
+          name: string;
+          country: string;
+        };
+      } = {};
+
       // Process all locations in parallel instead of sequentially
       const locationPromises = (groupMembers || []).map(async (member) => {
         try {
-          console.log('[fetchData] Processing member:', member.email, 'Location:', member.location);
-          
-          if (!member.location || member.location === '') {
-            console.log('[fetchData] No location set for member:', member.email);
+          console.log(
+            "[fetchData] Processing member:",
+            member.email,
+            "Location:",
+            member.location
+          );
+
+          if (!member.location || member.location === "") {
+            console.log(
+              "[fetchData] No location set for member:",
+              member.email
+            );
             return {
               id: member.id,
               location: {
                 latitude: 0,
                 longitude: 0,
-                name: member.email?.split('@')[0] || 'Anonymous',
-                country: 'Location not set'
-              }
+                name: member.email?.split("@")[0] || "Anonymous",
+                country: "Location not set",
+              },
             };
           }
-          
+
           const coords = await getCoordinatesFromPostalCode(member.location);
-          console.log('[fetchData] Geocode result:', coords);
-          
+          console.log("[fetchData] Geocode result:", coords);
+
           if (coords) {
             return {
               id: member.id,
               location: {
                 latitude: coords.latitude,
                 longitude: coords.longitude,
-                name: member.email?.split('@')[0] || 'Anonymous',
-                country: coords.country
-              }
+                name: member.email?.split("@")[0] || "Anonymous",
+                country: coords.country,
+              },
             };
           } else {
-            console.log('[fetchData] No coordinates found for member:', member.email);
+            console.log(
+              "[fetchData] No coordinates found for member:",
+              member.email
+            );
             return {
               id: member.id,
               location: {
                 latitude: 0,
                 longitude: 0,
-                name: member.email?.split('@')[0] || 'Anonymous',
-                country: 'Location not set'
-              }
+                name: member.email?.split("@")[0] || "Anonymous",
+                country: "Location not set",
+              },
             };
           }
         } catch (error) {
-          console.error(`[fetchData] Error getting coordinates for user ${member.id}:`, error);
+          console.error(
+            `[fetchData] Error getting coordinates for user ${member.id}:`,
+            error
+          );
           return {
             id: member.id,
             location: {
               latitude: 0,
               longitude: 0,
-              name: member.email?.split('@')[0] || 'Anonymous',
-              country: 'Location not set'
-            }
+              name: member.email?.split("@")[0] || "Anonymous",
+              country: "Location not set",
+            },
           };
         }
       });
-      
+
       // Wait for all geocoding to complete in parallel
       const locationResults = await Promise.all(locationPromises);
-      
+
       // Build the final locations object
-      locationResults.forEach(result => {
+      locationResults.forEach((result) => {
         locations[result.id] = result.location;
-        console.log('[fetchData] Added location for member:', result.id, result.location);
+        console.log(
+          "[fetchData] Added location for member:",
+          result.id,
+          result.location
+        );
       });
-      console.log('[fetchData] Final locations object:', locations);
+      console.log("[fetchData] Final locations object:", locations);
       setUserLocations(locations);
 
       // Check if user has already submitted (match prompt page logic)
       if (groupData && user) {
         const { data: userSubmission, error: submissionError } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('group_id', groupData.id)
-          .eq('user_id', user.id)
+          .from("submissions")
+          .select("*")
+          .eq("group_id", groupData.id)
+          .eq("user_id", user.id)
           .single();
         if (!submissionError && userSubmission) {
           setHasSubmitted(true);
@@ -626,31 +811,30 @@ export default function Dashboard() {
       const fetchMessages = async () => {
         if (!groupData) return;
         const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('group_id', groupData.id);
+          .from("messages")
+          .select("*")
+          .eq("group_id", groupData.id);
         if (!error && data) setMessages(data);
       };
       fetchMessages();
 
       // Calculate unique continents from userLocations
       const continents = new Set();
-      Object.values(locations).forEach(loc => {
+      Object.values(locations).forEach((loc) => {
         if (loc.country) {
           continents.add(countryToContinent(loc.country));
         }
       });
       setContinentCount(continents.size);
-
     } catch (error) {
-      console.error('[fetchData] Error fetching dashboard data:', error);
-      setError('Failed to load data. Please try again.');
+      console.error("[fetchData] Error fetching dashboard data:", error);
+      setError("Failed to load data. Please try again.");
     } finally {
-      console.log('[fetchData] Setting loading to false');
+      console.log("[fetchData] Setting loading to false");
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchData();
   }, [user]); // Only fetch data when user changes
@@ -662,12 +846,19 @@ export default function Dashboard() {
     const updateTimer = () => {
       const now = new Date();
       if (now > promptDueDate) {
-        setTimeLeft('Next prompt coming soon!');
+        setTimeLeft("Next prompt coming soon!");
         return true; // Return true to indicate timer should stop
       } else {
-        const hours = Math.floor((promptDueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
-        const minutes = Math.floor(((promptDueDate.getTime() - now.getTime()) % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor(((promptDueDate.getTime() - now.getTime()) % (1000 * 60)) / 1000);
+        const hours = Math.floor(
+          (promptDueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+        );
+        const minutes = Math.floor(
+          ((promptDueDate.getTime() - now.getTime()) % (1000 * 60 * 60)) /
+            (1000 * 60)
+        );
+        const seconds = Math.floor(
+          ((promptDueDate.getTime() - now.getTime()) % (1000 * 60)) / 1000
+        );
         setTimeLeft(`${hours}h ${minutes}m ${seconds}s until next prompt`);
         return false; // Return false to indicate timer should continue
       }
@@ -693,11 +884,11 @@ export default function Dashboard() {
     if (promptDueDate) {
       const now = new Date();
       if (now > promptDueDate) {
-        console.log('Timer expired, checking group status');
-        setTimeLeft('Next prompt coming soon!');
+        console.log("Timer expired, checking group status");
+        setTimeLeft("Next prompt coming soon!");
         // Refresh data after 5 seconds
         const refreshTimer = setTimeout(() => {
-          console.log('Refreshing data after timer expiration');
+          console.log("Refreshing data after timer expiration");
           fetchData();
         }, 5000);
         return () => clearTimeout(refreshTimer);
@@ -710,19 +901,19 @@ export default function Dashboard() {
     if (group && promptDueDate) {
       const now = new Date();
       if (now > promptDueDate) {
-        console.log('Timer expired in group status effect, checking group');
+        console.log("Timer expired in group status effect, checking group");
         checkGroupStatus(group);
       }
     }
   }, [group, promptDueDate]);
-  
+
   const handleSignOut = async () => {
     try {
       setShowResultsModal(false); // Close the modal first
       await signOut();
-      router.replace('/(auth)/signup');
+      router.replace("/(auth)/signup");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
@@ -730,30 +921,34 @@ export default function Dashboard() {
     try {
       setError(null);
       setIsJoining(true);
-      
+
       if (!user?.id) {
-        setError('Please sign in to join a group');
+        setError("Please sign in to join a group");
         return;
       }
 
       const { data: groupData, error: groupError } = await supabase
-        .from('groups')
+        .from("groups")
         .insert([
           {
             id: user.id,
-            created_at: new Date().toISOString()
-          }
+            created_at: new Date().toISOString(),
+          },
         ])
         .select()
         .single();
 
       if (groupError) throw groupError;
-      
+
       setGroup(groupData);
-      router.push('/(tabs)/prompt');
+      router.push("/(tabs)/prompt");
     } catch (err) {
-      console.error('Error joining group:', err);
-      setError(err instanceof Error ? err.message : 'Failed to join group. Please try again.');
+      console.error("Error joining group:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to join group. Please try again."
+      );
     } finally {
       setIsJoining(false);
     }
@@ -761,60 +956,57 @@ export default function Dashboard() {
 
   const handleSubmit = async () => {
     if (!response.trim() || !user || !group) {
-      Alert.alert('Error', 'Please enter a response');
+      Alert.alert("Error", "Please enter a response");
       return;
     }
-    
+
     try {
       setLoading(true);
-      
-      console.log('Submitting response for group:', group.id);
-      const { error } = await supabase
-        .from('submissions')
-        .insert([
-          {
-            user_id: user.id,
-            group_id: group.id,
-            prompt_id: currentPrompt?.id,
-            response_text: response.trim(),
-            created_at: new Date().toISOString()
-          }
-        ]);
-      
+
+      console.log("Submitting response for group:", group.id);
+      const { error } = await supabase.from("submissions").insert([
+        {
+          user_id: user.id,
+          group_id: group.id,
+          prompt_id: currentPrompt?.id,
+          response_text: response.trim(),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
       if (error) {
-        console.error('Error submitting response:', error);
+        console.error("Error submitting response:", error);
         throw error;
       }
 
       // Update user's submission status
       const { error: updateError } = await supabase
-        .from('users')
-        .update({ 
+        .from("users")
+        .update({
           submitted: true,
-          last_submission_date: new Date().toISOString()
+          last_submission_date: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (updateError) {
-        console.error('Error updating user submission status:', updateError);
+        console.error("Error updating user submission status:", updateError);
       }
-      
-      console.log('Response submitted successfully');
+
+      console.log("Response submitted successfully");
       setHasSubmitted(true);
-      
+
       // Update the local group state to reflect the submission
       if (group.members) {
-        const updatedMembers = group.members.map(member => 
-          member.id === user.id 
-            ? { ...member, submitted: true }
-            : member
+        const updatedMembers = group.members.map((member) =>
+          member.id === user.id ? { ...member, submitted: true } : member
         );
-        setGroup(prev => prev ? { ...prev, members: updatedMembers } : null);
+        setGroup((prev) =>
+          prev ? { ...prev, members: updatedMembers } : null
+        );
       }
-      
     } catch (error) {
-      console.error('Error submitting response:', error);
-      Alert.alert('Error', 'Failed to submit your response. Please try again.');
+      console.error("Error submitting response:", error);
+      Alert.alert("Error", "Failed to submit your response. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -822,51 +1014,51 @@ export default function Dashboard() {
 
   const handleNotifyMe = async () => {
     try {
-      console.log('=== Starting handleNotifyMe ===');
+      console.log("=== Starting handleNotifyMe ===");
       if (!user) {
-        console.log('No user found, cannot proceed');
-        Alert.alert('Error', 'Please sign in to enable notifications.');
+        console.log("No user found, cannot proceed");
+        Alert.alert("Error", "Please sign in to enable notifications.");
         return;
       }
 
-      console.log('User ID:', user.id);
-      console.log('Requesting notification permissions...');
+      console.log("User ID:", user.id);
+      console.log("Requesting notification permissions...");
       const token = await registerForPushNotificationsAsync();
-      
+
       if (!token) {
-        console.log('No token received');
+        console.log("No token received");
         return;
       }
 
-      console.log('Got push token, saving to Supabase...');
+      console.log("Got push token, saving to Supabase...");
       try {
         const result = await savePushToken(user.id, token);
-        console.log('Save token result:', result);
-        
+        console.log("Save token result:", result);
+
         // Send a test notification
-        console.log('Sending test notification...');
+        console.log("Sending test notification...");
         await sendTestNotification(token);
-        console.log('Test notification sent successfully');
-        
+        console.log("Test notification sent successfully");
+
         Alert.alert(
-          'Notifications Enabled',
-          'We\'ll notify you when your group is ready!',
-          [{ text: 'OK' }]
+          "Notifications Enabled",
+          "We'll notify you when your group is ready!",
+          [{ text: "OK" }]
         );
       } catch (saveError) {
-        console.error('Error saving token:', saveError);
+        console.error("Error saving token:", saveError);
         Alert.alert(
-          'Error',
-          'Failed to save notification settings. Please try again.',
-          [{ text: 'OK' }]
+          "Error",
+          "Failed to save notification settings. Please try again.",
+          [{ text: "OK" }]
         );
       }
     } catch (error) {
-      console.error('Error setting up notifications:', error);
+      console.error("Error setting up notifications:", error);
       Alert.alert(
-        'Error',
-        'Failed to enable notifications. Please try again.',
-        [{ text: 'OK' }]
+        "Error",
+        "Failed to enable notifications. Please try again.",
+        [{ text: "OK" }]
       );
     }
   };
@@ -874,7 +1066,7 @@ export default function Dashboard() {
   const handleScroll = (event: any) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     const scrollDiff = currentScrollY - lastScrollY;
-    
+
     if (scrollDiff > 5 && headerVisible && currentScrollY > 50) {
       // Scrolling down - hide header
       setHeaderVisible(false);
@@ -892,7 +1084,7 @@ export default function Dashboard() {
         useNativeDriver: true,
       }).start();
     }
-    
+
     setLastScrollY(currentScrollY);
   };
 
@@ -938,16 +1130,16 @@ export default function Dashboard() {
 
   const spin = globeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
+    outputRange: ["0deg", "360deg"],
   });
 
   const scale = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.05]
+    outputRange: [1, 1.05],
   });
 
   const handleJoinWaitlist = () => {
-    Linking.openURL('https://wt.ls/pact');
+    Linking.openURL("https://wt.ls/pact");
   };
 
   useEffect(() => {
@@ -961,8 +1153,8 @@ export default function Dashboard() {
 
   // Reset checkedIn when app comes to foreground
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
         setCheckedIn(false);
       }
     });
@@ -976,10 +1168,15 @@ export default function Dashboard() {
         locations={[0, 0.4808, 0.9904]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
       >
         <LoadingSpinner size="large" />
-        <Text style={styles.loadingText}>Connecting you with your group around the world...</Text>
+        <Text style={styles.loadingText}>
+          Connecting you with your group around the world...
+        </Text>
       </LinearGradient>
     );
   }
@@ -994,7 +1191,7 @@ export default function Dashboard() {
         style={styles.container}
       >
         <View style={styles.quizContainer}>
-          <Animated.Text 
+          <Animated.Text
             style={[styles.quizTitle, { opacity: fadeAnim }]}
             onLayout={() => {
               Animated.timing(fadeAnim, {
@@ -1010,9 +1207,9 @@ export default function Dashboard() {
             <Text style={styles.quizDescription}>
               Take a quick quiz to help us match you with the perfect group.
             </Text>
-            <TouchableOpacity 
-              style={styles.quizButton} 
-              onPress={() => router.push('/quiz')}
+            <TouchableOpacity
+              style={styles.quizButton}
+              onPress={() => router.push("/quiz")}
             >
               <LinearGradient
                 colors={["#3AB9F9", "#4B1AFF", "#006FFF"]}
@@ -1037,56 +1234,105 @@ export default function Dashboard() {
         locations={[0, 0.5192, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
       >
-        <Text style={{ fontFamily: 'PlanetComic', fontSize: 36, color: '#fff', marginBottom: 32, textAlign: 'center' }}>
+        <Text
+          style={{
+            fontFamily: "PlanetComic",
+            fontSize: 36,
+            color: "#fff",
+            marginBottom: 32,
+            textAlign: "center",
+          }}
+        >
           Your friends await
         </Text>
         {/* Remove GroupDetailsCard and add group member cards */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24, gap: 24 }}>
-        {memberData.map((member, idx) => {
-          const { translateY, hoverAnim } = memberAnims[idx];
-          const combinedTranslateY = Animated.add(
-            translateY,
-            hoverAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, -12],
-            })
-          );
-          return (
-            <Animated.View key={idx} style={{ alignItems: 'center', transform: [{ translateY: combinedTranslateY }] }}>
-              <View style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: '#fff',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 8,
-                borderWidth: 2,
-                borderColor: '#4B1AFF',
-                shadowColor: '#000',
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 2,
-              }}>
-                <Text style={{ fontSize: 28, fontWeight: '700', color: '#4B1AFF' }}>
-                  {member.emoji}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            marginBottom: 24,
+            gap: 24,
+          }}
+        >
+          {memberData.map((member, idx) => {
+            const { translateY, hoverAnim } = memberAnims[idx];
+            const combinedTranslateY = Animated.add(
+              translateY,
+              hoverAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -12],
+              })
+            );
+            return (
+              <Animated.View
+                key={idx}
+                style={{
+                  alignItems: "center",
+                  transform: [{ translateY: combinedTranslateY }],
+                }}
+              >
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: "#fff",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginBottom: 8,
+                    borderWidth: 2,
+                    borderColor: "#4B1AFF",
+                    shadowColor: "#000",
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 28,
+                      fontWeight: "700",
+                      color: "#4B1AFF",
+                    }}
+                  >
+                    {member.emoji}
+                  </Text>
+                </View>
+                <Text
+                  style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}
+                >
+                  {member.label}
                 </Text>
-              </View>
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{member.label}</Text>
-            </Animated.View>
-          );
-        })}
-      </View>
+              </Animated.View>
+            );
+          })}
+        </View>
         <Text style={styles.queueSubtitle}>
           Join the queue to be matched with compatible group members.
         </Text>
         {/* Join the Queue button and message at the bottom */}
-        <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center', width: '100%' }}>
-          <TouchableOpacity 
+        <View
+          style={{
+            position: "absolute",
+            bottom: 48,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <TouchableOpacity
             style={styles.queueButton}
-            onPress={() => Linking.openURL('https://wt.ls/pact')}
+            onPress={() => {
+              mixpanel.track("Join the Queue Clicked");
+              Linking.openURL("https://wt.ls/pact");
+            }}
           >
             <View style={styles.queueButtonInner}>
               <LinearGradient
@@ -1099,38 +1345,50 @@ export default function Dashboard() {
               </LinearGradient>
             </View>
           </TouchableOpacity>
-          <Text style={[styles.queueHint, { marginTop: 24 }]}> 
-            It usually takes 24-48 hours to match you with compatible group members based on your personality and preferences.
+          <Text style={[styles.queueHint, { marginTop: 24 }]}>
+            It usually takes 24-48 hours to match you with compatible group
+            members based on your personality and preferences.
           </Text>
         </View>
         <TouchableOpacity
           style={styles.iconButton}
           onPress={() => setShowResultsModal(true)}
         >
-          <MaterialCommunityIcons name="account-circle" size={24} color="#FFFFFF" />
+          <MaterialCommunityIcons
+            name="account-circle"
+            size={24}
+            color="#FFFFFF"
+          />
         </TouchableOpacity>
-        <Modal
-          visible={showResultsModal}
-          transparent
-          animationType="fade"
-        >
+        <Modal visible={showResultsModal} transparent animationType="fade">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
-              <ScrollView 
+              <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}
               >
                 {/* Personality Type Card */}
                 <View style={styles.modalCard}>
-                  <Text style={styles.modalCardTitle}>Your Personality Type</Text>
-                  <Text style={styles.modalSubtitle}>Here's what makes you unique! 🌟</Text>
+                  <Text style={styles.modalCardTitle}>
+                    Your Personality Type
+                  </Text>
+                  <Text style={styles.modalSubtitle}>
+                    Here's what makes you unique! 🌟
+                  </Text>
                   <View style={styles.modalTypeBox}>
                     {userData?.personalitytype && (
                       <>
                         <Text style={styles.modalPersonalityType}>
-                          {personalityTypes.find(p => p.type === userData.personalitytype)?.icon} {userData.personalitytype}
+                          {
+                            personalityTypes.find(
+                              (p) => p.type === userData.personalitytype
+                            )?.icon
+                          }{" "}
+                          {userData.personalitytype}
                         </Text>
-                        <Text style={styles.modalDescription}>{userData.personalitydescription}</Text>
+                        <Text style={styles.modalDescription}>
+                          {userData.personalitydescription}
+                        </Text>
                       </>
                     )}
                   </View>
@@ -1140,79 +1398,116 @@ export default function Dashboard() {
                 {userData?.personalitydepth && (
                   <View style={styles.modalCard}>
                     <Text style={styles.modalCardTitle}>In-Depth Analysis</Text>
-                    <Text style={styles.modalSubtitle}>A deeper look into your personality 🔍</Text>
+                    <Text style={styles.modalSubtitle}>
+                      A deeper look into your personality 🔍
+                    </Text>
                     <View style={styles.modalDepthBox}>
-                      {userData.personalitydepth.split('\n\n').map((section, index) => {
-                        if (!section.trim()) return null;
+                      {userData.personalitydepth
+                        .split("\n\n")
+                        .map((section, index) => {
+                          if (!section.trim()) return null;
 
-                        const lines = section.split('\n');
-                        
-                        // Check if this is a section with ### title
-                        if (lines[0].startsWith('###')) {
-                          const title = lines[0].replace(/^###\s*/, '').trim();
-                          const content = lines.slice(1);
-                          
-                          return (
-                            <View key={index} style={styles.modalSection}>
-                              <Text style={styles.modalSectionTitle}>{title}</Text>
-                              {content.map((line, i) => {
-                                if (!line.trim()) return null;
+                          const lines = section.split("\n");
 
-                                // Handle bullet points
-                                if (line.trim().startsWith('•')) {
-                                  const [bulletPoint, ...description] = line.trim().split(':');
-                                  return (
-                                    <View key={i} style={styles.modalBulletPoint}>
-                                      <Text style={styles.modalBulletPointTitle}>
-                                        {bulletPoint.replace('•', '').trim()}
-                                      </Text>
-                                      {description.length > 0 && (
-                                        <Text style={styles.modalBulletPointContent}>
-                                          {description.join(':').trim()}
+                          // Check if this is a section with ### title
+                          if (lines[0].startsWith("###")) {
+                            const title = lines[0]
+                              .replace(/^###\s*/, "")
+                              .trim();
+                            const content = lines.slice(1);
+
+                            return (
+                              <View key={index} style={styles.modalSection}>
+                                <Text style={styles.modalSectionTitle}>
+                                  {title}
+                                </Text>
+                                {content.map((line, i) => {
+                                  if (!line.trim()) return null;
+
+                                  // Handle bullet points
+                                  if (line.trim().startsWith("•")) {
+                                    const [bulletPoint, ...description] = line
+                                      .trim()
+                                      .split(":");
+                                    return (
+                                      <View
+                                        key={i}
+                                        style={styles.modalBulletPoint}
+                                      >
+                                        <Text
+                                          style={styles.modalBulletPointTitle}
+                                        >
+                                          {bulletPoint.replace("•", "").trim()}
                                         </Text>
-                                      )}
-                                    </View>
-                                  );
-                                }
-                                
-                                // Handle numbered points
-                                if (line.trim().match(/^\d+\./)) {
-                                  const [number, ...content] = line.trim().split('.');
-                                  return (
-                                    <View key={i} style={styles.modalNumberedPoint}>
-                                      <Text style={styles.modalNumberCircle}>{number}</Text>
-                                      <Text style={styles.modalNumberedContent}>
-                                        {content.join('.').trim()}
-                                      </Text>
-                                    </View>
-                                  );
-                                }
+                                        {description.length > 0 && (
+                                          <Text
+                                            style={
+                                              styles.modalBulletPointContent
+                                            }
+                                          >
+                                            {description.join(":").trim()}
+                                          </Text>
+                                        )}
+                                      </View>
+                                    );
+                                  }
 
-                                // Regular line within a section
+                                  // Handle numbered points
+                                  if (line.trim().match(/^\d+\./)) {
+                                    const [number, ...content] = line
+                                      .trim()
+                                      .split(".");
+                                    return (
+                                      <View
+                                        key={i}
+                                        style={styles.modalNumberedPoint}
+                                      >
+                                        <Text style={styles.modalNumberCircle}>
+                                          {number}
+                                        </Text>
+                                        <Text
+                                          style={styles.modalNumberedContent}
+                                        >
+                                          {content.join(".").trim()}
+                                        </Text>
+                                      </View>
+                                    );
+                                  }
+
+                                  // Regular line within a section
+                                  return (
+                                    <Text
+                                      key={i}
+                                      style={styles.modalSectionContent}
+                                    >
+                                      {line.trim()}
+                                    </Text>
+                                  );
+                                })}
+                              </View>
+                            );
+                          }
+
+                          // Regular paragraph
+                          return (
+                            <View
+                              key={index}
+                              style={styles.modalParagraphSection}
+                            >
+                              {lines.map((line, i) => {
+                                if (!line.trim()) return null;
                                 return (
-                                  <Text key={i} style={styles.modalSectionContent}>
+                                  <Text
+                                    key={i}
+                                    style={styles.modalParagraphText}
+                                  >
                                     {line.trim()}
                                   </Text>
                                 );
                               })}
                             </View>
                           );
-                        }
-                        
-                        // Regular paragraph
-                        return (
-                          <View key={index} style={styles.modalParagraphSection}>
-                            {lines.map((line, i) => {
-                              if (!line.trim()) return null;
-                              return (
-                                <Text key={i} style={styles.modalParagraphText}>
-                                  {line.trim()}
-                                </Text>
-                              );
-                            })}
-                          </View>
-                        );
-                      })}
+                        })}
                     </View>
                   </View>
                 )}
@@ -1247,81 +1542,129 @@ export default function Dashboard() {
       end={{ x: 0, y: 1 }}
       style={styles.container}
     >
-      <Animated.View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        width: '100%', 
-        paddingLeft: 5, 
-        paddingRight: 20, 
-        paddingTop: insets.top + 6,
-        paddingBottom: 8,
-        backgroundColor: 'transparent', 
-        shadowColor: 'transparent', 
-        shadowOpacity: 0, 
-        elevation: 0,
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        transform: [{ translateY: scrollY }]
-      }}>
-        <Image source={require('../../assets/logo.png')} style={{ width: 180, height: 90, resizeMode: 'contain', marginLeft: -10 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ 
-            width: 48, 
-            height: 48, 
-            borderRadius: 24, 
-            backgroundColor: '#E0E7FF',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 4
-          }}>
-            <Text style={{ fontWeight: '700', fontSize: 16, color: '#222' }}>{group?.streak_count ?? 0}<Text style={{ fontSize: 18 }}>🔥</Text></Text>
+      <Animated.View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          paddingLeft: 5,
+          paddingRight: 20,
+          paddingTop: insets.top + 6,
+          paddingBottom: 8,
+          backgroundColor: "transparent",
+          shadowColor: "transparent",
+          shadowOpacity: 0,
+          elevation: 0,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          transform: [{ translateY: scrollY }],
+        }}
+      >
+        <Image
+          source={require("../../assets/logo.png")}
+          style={{
+            width: 180,
+            height: 90,
+            resizeMode: "contain",
+            marginLeft: -10,
+          }}
+        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: "#E0E7FF",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 4,
+            }}
+          >
+            <Text style={{ fontWeight: "700", fontSize: 16, color: "#222" }}>
+              {group?.streak_count ?? 0}
+              <Text style={{ fontSize: 18 }}>🔥</Text>
+            </Text>
           </View>
-          <TouchableOpacity 
-            style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden', borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }}
-            onPress={() => router.push('/profile')}
+          <TouchableOpacity
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: "hidden",
+              borderWidth: 2,
+              borderColor: "#fff",
+              shadowColor: "#000",
+              shadowOpacity: 0.08,
+              shadowRadius: 4,
+              elevation: 2,
+            }}
+            onPress={() => router.push("/profile")}
             activeOpacity={0.8}
           >
-            <Image 
-              source={user?.avatar_url ? { uri: user.avatar_url } : { uri: 'https://i.pravatar.cc/150?img=1' }}
-              style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+            <Image
+              source={
+                user?.avatar_url
+                  ? { uri: user.avatar_url }
+                  : { uri: "https://i.pravatar.cc/150?img=1" }
+              }
+              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
             />
           </TouchableOpacity>
         </View>
       </Animated.View>
-      
-      <ScrollView 
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 100 }]}
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 100 },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
         <View style={styles.section}>
           <GroupCard
-            name={group?.name || 'Group Name'}
-            subdescription={'A pack that tends to pick bold answers 💥'}
+            name={group?.name || "Group Name"}
+            subdescription={"A pack that tends to pick bold answers 💥"}
             members={group?.members || []}
             promptCount={group?.prompts?.length || 0}
-            mapComponent={<GroupMap userLocations={userLocations} checkedIn={checkedIn} currentUserId={user?.id || ''} />}
+            mapComponent={
+              <GroupMap
+                userLocations={userLocations}
+                checkedIn={checkedIn}
+                currentUserId={user?.id || ""}
+              />
+            }
             checkedIn={checkedIn}
             onShareLocation={() => setCheckedIn(true)}
           />
         </View>
         <View style={styles.section}>
           <PromptCard
-            promptType={currentPrompt?.prompt_type === 'photo' ? 'photo' : 'text'}
+            promptType={
+              currentPrompt?.prompt_type === "photo" ? "photo" : "text"
+            }
             date={(() => {
               const d = new Date();
-              return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+              return d.toLocaleDateString("en-US", {
+                day: "2-digit",
+                month: "short",
+              });
             })()}
-            prompt={typeof group?.current_prompt === 'string' ? group.current_prompt : currentPrompt?.content || ''}
-            timeLeft={timeLeft.split(' ')[0] || ''}
+            prompt={
+              typeof group?.current_prompt === "string"
+                ? group.current_prompt
+                : currentPrompt?.content || ""
+            }
+            timeLeft={timeLeft.split(" ")[0] || ""}
             onRespond={() => {
               if (!group) return handleJoinGroup();
-              router.push('/(tabs)/prompt');
+              router.push("/(tabs)/prompt");
             }}
             hasSubmitted={hasSubmitted}
           />
@@ -1336,10 +1679,13 @@ export default function Dashboard() {
         </View>
         <View style={styles.section}>
           <MatchReasonCard
-            reason={group?.match_reason || 'You were matched based on your quiz answers and shared interests!'}
+            reason={
+              group?.match_reason ||
+              "You were matched based on your quiz answers and shared interests!"
+            }
           />
         </View>
-        
+
         <View style={{ height: 300 }} />
       </ScrollView>
     </LinearGradient>
@@ -1349,50 +1695,50 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FEFEFF',
-    alignItems: 'center',
+    backgroundColor: "#FEFEFF",
+    alignItems: "center",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 4,
   },
   title: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: theme.typography.fontSize.xl,
     color: theme.colors.text.primary,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.sm,
   },
   streakContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.sm,
   },
   streakText: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.secondary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   refreshButton: {
     padding: theme.spacing.sm,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderWidth: 2,
-    borderColor: '#000',
-    shadowColor: '#000',
+    borderColor: "#000",
+    shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1401,19 +1747,19 @@ const styles = StyleSheet.create({
   signOutButton: {
     padding: theme.spacing.sm,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderWidth: 2,
-    borderColor: '#000',
-    shadowColor: '#000',
+    borderColor: "#000",
+    shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   signOutButtonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollContent: {
     padding: theme.spacing.lg,
@@ -1422,19 +1768,19 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   membersContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
     padding: theme.spacing.md,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -1444,11 +1790,11 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   memberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.md,
     padding: theme.spacing.sm,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     borderRadius: 8,
   },
   memberAvatar: {
@@ -1456,21 +1802,21 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   memberInfo: {
     flex: 1,
   },
   memberName: {
-    fontFamily: 'Nunito-SemiBold',
+    fontFamily: "Nunito-SemiBold",
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   memberStatus: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   memberStatusSubmitted: {
     color: theme.colors.primary,
@@ -1479,18 +1825,18 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
   },
   membersStats: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
     marginTop: theme.spacing.md,
     paddingTop: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: "#E5E5E5",
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
     width: 50,
     height: 50,
   },
@@ -1499,104 +1845,104 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   avatarOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   timerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   timerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: theme.spacing.sm,
   },
   timerText: {
-    fontFamily: 'Nunito-SemiBold',
+    fontFamily: "Nunito-SemiBold",
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   promptCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   promptText: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.primary,
     lineHeight: 24,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   promptButton: {
-    backgroundColor: '#87CEEB',
+    backgroundColor: "#87CEEB",
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
-    borderColor: '#000',
-    shadowColor: '#000',
+    borderColor: "#000",
+    shadowColor: "#000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 4,
   },
   promptButtonText: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: theme.typography.fontSize.md,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   joinButton: {
-    backgroundColor: '#B0E0E6',
+    backgroundColor: "#B0E0E6",
   },
   quizButton: {
     width: 280,
     height: 62,
     borderRadius: 51,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 25.1,
     elevation: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
     marginTop: 8,
   },
   buttonGradient: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 51,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   quizButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    width: '100%',
+    fontWeight: "700",
+    textAlign: "center",
+    width: "100%",
   },
   pinContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
   },
   pinPulse: {
-    position: 'absolute',
+    position: "absolute",
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -1604,146 +1950,146 @@ const styles = StyleSheet.create({
   },
   quizContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: theme.spacing.xl,
   },
   quizContent: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: theme.spacing.xl,
     borderRadius: 32,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
   },
   quizTitle: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: theme.typography.fontSize.xl,
-    color: '#222',
-    textAlign: 'center',
+    color: "#222",
+    textAlign: "center",
     marginBottom: theme.spacing.lg,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   quizDescription: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.md,
-    color: '#888',
-    textAlign: 'center',
+    color: "#888",
+    textAlign: "center",
     maxWidth: 300,
     lineHeight: 24,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   promptHeader: {
     marginBottom: theme.spacing.md,
   },
   promptTypeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.xs,
     marginTop: theme.spacing.sm,
   },
   promptTypeText: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   promptActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
   },
   refreshPromptButton: {
-    backgroundColor: '#B0E0E6',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#B0E0E6",
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.xs,
   },
   queueContent: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: theme.spacing.xl,
   },
   queueIconWrapper: {
     width: 300,
     height: 300,
     marginBottom: theme.spacing.xl,
-    position: 'relative',
+    position: "relative",
   },
   queueIcon: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
   },
   queueLogo: {
-    position: 'absolute',
+    position: "absolute",
     width: 440,
     height: 220,
-    top: '50%',
-    left: '50%',
+    top: "50%",
+    left: "50%",
     transform: [{ translateX: -220 }, { translateY: -110 }],
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   queueTitle: {
     fontSize: theme.typography.fontSize.xxl,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginBottom: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   queueSubtitle: {
     fontSize: theme.typography.fontSize.lg,
-    color: '#FFFFFF',
-    textAlign: 'center',
+    color: "#FFFFFF",
+    textAlign: "center",
     marginBottom: theme.spacing.xl,
     lineHeight: 24,
     opacity: 0.9,
     maxWidth: 350,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   queueButton: {
     width: 280,
     height: 62,
     borderRadius: 51,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 25.1,
     elevation: 6,
   },
   queueButtonInner: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 51,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   queueButtonGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   queueButtonText: {
     fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#FFFFFF",
   },
   queueHint: {
     fontSize: theme.typography.fontSize.sm,
-    color: '#FFFFFF',
-    textAlign: 'center',
+    color: "#FFFFFF",
+    textAlign: "center",
     marginTop: theme.spacing.xl,
     lineHeight: 20,
     opacity: 0.8,
@@ -1752,33 +2098,33 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
   },
   mapCard: {
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
   },
   mapContainer: {
     height: 200,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   map: {
     flex: 1,
   },
   customMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   markerInner: {
     backgroundColor: theme.colors.primary,
     borderRadius: 20,
     width: 32,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -1788,22 +2134,22 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   locationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.xs,
   },
   locationText: {
-    fontFamily: 'Nunito-SemiBold',
+    fontFamily: "Nunito-SemiBold",
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.text.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   locationSubtext: {
-    fontFamily: 'Nunito-Regular',
+    fontFamily: "Nunito-Regular",
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   defaultMarker: {
     opacity: 0.7,
@@ -1812,102 +2158,102 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.text.secondary,
   },
   centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 24,
     fontSize: 20,
-    color: '#222',
-    textAlign: 'center',
-    fontFamily: 'Poppins-SemiBold',
-    fontWeight: '700',
+    color: "#222",
+    textAlign: "center",
+    fontFamily: "Poppins-SemiBold",
+    fontWeight: "700",
     paddingHorizontal: 24,
   },
   currentUserText: {
-    color: '#6366F1',
-    fontWeight: '700',
+    color: "#6366F1",
+    fontWeight: "700",
     fontSize: theme.typography.fontSize.md + 1,
   },
   iconButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     right: 20,
     zIndex: 1,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 32,
-    width: '100%',
-    maxHeight: '90%',
+    width: "100%",
+    maxHeight: "90%",
     paddingVertical: 24,
   },
   modalScrollContent: {
     paddingHorizontal: 20,
   },
   modalCard: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     borderRadius: 32,
     paddingVertical: 24,
     paddingHorizontal: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 24,
   },
   modalCardTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 20,
-    color: '#111',
+    color: "#111",
     marginBottom: 2,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalSubtitle: {
-    fontWeight: '400',
+    fontWeight: "400",
     fontSize: 15,
-    color: '#444',
-    textAlign: 'center',
+    color: "#444",
+    textAlign: "center",
     marginBottom: 16,
   },
   modalTypeBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 20,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000',
+    width: "100%",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
   modalPersonalityType: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#4B1AFF',
+    fontWeight: "700",
+    color: "#4B1AFF",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalDescription: {
     fontSize: 16,
-    color: '#222',
+    color: "#222",
     lineHeight: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalDepthBox: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16,
     padding: 20,
     marginTop: 12,
-    width: '100%',
+    width: "100%",
   },
   modalSection: {
     marginBottom: 20,
@@ -1917,41 +2263,41 @@ const styles = StyleSheet.create({
   },
   modalSectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontWeight: "700",
+    color: "#1A1A1A",
     marginBottom: 12,
   },
   modalSectionContent: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
     marginBottom: 8,
   },
   modalParagraphText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
     marginBottom: 4,
   },
   modalBulletPoint: {
-    flexDirection: 'column',
+    flexDirection: "column",
     marginLeft: 16,
     marginBottom: 12,
   },
   modalBulletPointTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontWeight: "600",
+    color: "#1A1A1A",
     marginBottom: 4,
   },
   modalBulletPointContent: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
   },
   modalNumberedPoint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginLeft: 16,
     marginBottom: 12,
   },
@@ -1959,41 +2305,41 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4B1AFF',
-    color: 'white',
-    textAlign: 'center',
+    backgroundColor: "#4B1AFF",
+    color: "white",
+    textAlign: "center",
     lineHeight: 24,
     marginRight: 12,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalNumberedContent: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     paddingHorizontal: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: "#E5E5E5",
     gap: 10,
   },
 
   closeButton: {
     flex: 1,
     padding: 12,
-    backgroundColor: '#4B1AFF',
+    backgroundColor: "#4B1AFF",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   closeButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

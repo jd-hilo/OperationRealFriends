@@ -22,8 +22,7 @@
       }
     },
     "production": {
-      "autoIncrement": true,
-      "node": "20.19.4",
+      "autoIncrement": true, 
       "ios": {
         "resourceClass": "m-medium",
         "image": "macos-sonoma-14.6-xcode-16.1"
