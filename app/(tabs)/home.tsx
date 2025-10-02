@@ -373,6 +373,10 @@ export default function Dashboard() {
     hoverAnim: useRef(new Animated.Value(0)).current,
   }));
   useEffect(() => {
+    if (user?.id) {
+      mixpanel.identify(user?.id);
+    }
+
     memberAnims.forEach(({ translateY, hoverAnim }, idx) => {
       Animated.sequence([
         Animated.delay(idx * 120),

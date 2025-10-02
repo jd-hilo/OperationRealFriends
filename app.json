@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.name.OperationRealSocial",
-      "buildNumber": "39",
+      "buildNumber": "45",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -62,7 +62,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "scheme": "pact"
   }
