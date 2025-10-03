@@ -374,7 +374,11 @@ export default function Dashboard() {
   }));
   useEffect(() => {
     if (user?.id) {
+      console.log("user id :", user.id);
       mixpanel.identify(user?.id);
+      mixpanel
+        .getPeople()
+        .setOnce({ $email: user.email, $name: user.preferred_name });
     }
 
     memberAnims.forEach(({ translateY, hoverAnim }, idx) => {

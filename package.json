@@ -60,8 +60,5 @@
     "date-fns": "^4.1.0",
     "typescript": "~5.8.3"
   },
-  "resolutions": {
-    "@react-native-async-storage/async-storage": "2.2.0"
-  },
   "private": true
 }
